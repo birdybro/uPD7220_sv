@@ -4,6 +4,7 @@ PYTHON ?= python3
 VENV ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 VENV_STAMP := $(VENV)/.upd7220-dev-ready
+RTL_SOURCES := rtl/upd7220_pkg.sv rtl/upd7220_core.sv rtl/upd7220.sv
 
 setup-dev: $(VENV_STAMP)
 
@@ -15,7 +16,8 @@ $(VENV_STAMP): requirements-dev.txt
 lint:
 	$(PYTHON) -m compileall -q model scripts tests
 	$(PYTHON) scripts/check_spec_matrix.py
-	verilator --lint-only --Wall --Wno-fatal tests/rtl/smoke_dut.sv
+	verilator --lint-only --Wall --top-module upd7220 $(RTL_SOURCES)
+	verilator --lint-only --Wall --top-module smoke_dut tests/rtl/smoke_dut.sv
 	git diff --check
 
 test: test-unit test-rtl

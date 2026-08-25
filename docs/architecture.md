@@ -1,0 +1,41 @@
+# Architecture
+
+## Public interface boundary
+
+`rtl/upd7220.sv` is the pin-faithful functional wrapper. It exposes the
+documented 2xWCLK, host bus, display-memory bus, synchronization, blanking, DMA,
+and light-pen signals. VCC and GND are omitted. The host DB bus, display AD bus,
+and V/EXT SYNC pin are the only top-level tri-states.
+
+`rtl/upd7220_core.sv` is the synthesizable integration boundary. Each
+bidirectional or mode-dependent physical signal is split into input, output, and
+output-enable components. No internal FPGA tri-state is used.
+
+The physical IC has no reset pin. Accordingly, the pin wrapper does not invent
+one: software must issue the RESET command before relying on state. The core has
+an `integration_reset_n` sideband for FPGA configuration and verification. It is
+tied inactive by the pin wrapper and is not part of claimed original-device
+behavior.
+
+## Clock foundation
+
+2xWCLK is the only clock. A registered `word_time_ce` pulse occurs after every
+second rising edge, representing the manual's two-clock machine/word time. All
+future memory, command, DMA, and raster state machines use clock enables; no
+derived clock is introduced.
+
+The integration reset establishes electrically safe idle directions: host and
+display-memory buses are released, V/EXT SYNC is an input, DBIN is inactive,
+ALE is high, DRQ and sync are low, and display blanking is asserted. These values
+describe FPGA integration reset, not undocumented silicon power-up behavior.
+
+## Compatibility profiles
+
+`upd7220_pkg::gdc_variant_t` defines three explicit profiles:
+
+- `GDC_7220` (default)
+- `GDC_82720`
+- `GDC_7220A`
+
+Variant gates are elaboration-time parameters. Base behavior must never depend
+on a 7220A-only enhancement.

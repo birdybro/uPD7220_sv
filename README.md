@@ -44,3 +44,11 @@ The independent, edge-steppable architectural model begins in
 [`model/upd7220_model.py`](model/upd7220_model.py). Its implemented scope is
 intentionally narrower than the final command set and is expanded only with
 primary-source-backed tests.
+
+## RTL interfaces
+
+[`rtl/upd7220.sv`](rtl/upd7220.sv) is the physical-bus wrapper. The split-bus
+[`rtl/upd7220_core.sv`](rtl/upd7220_core.sv) is intended for FPGA integration and
+verification. The core currently implements only clock/reset and safe bus-idle
+foundations; no command compatibility is claimed yet. See
+[`docs/architecture.md`](docs/architecture.md).
