@@ -1,5 +1,6 @@
 # Reference PDFs are fetched locally. Redistribution rights are unclear.
 references/downloads/
+references/extracted/
 
 # Python and test artefacts
 __pycache__/
