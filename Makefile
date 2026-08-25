@@ -13,7 +13,7 @@ $(VENV_STAMP): requirements-dev.txt
 	touch $(VENV_STAMP)
 
 lint:
-	$(PYTHON) -m compileall -q scripts tests
+	$(PYTHON) -m compileall -q model scripts tests
 	$(PYTHON) scripts/check_spec_matrix.py
 	verilator --lint-only --Wall --Wno-fatal tests/rtl/smoke_dut.sv
 	git diff --check

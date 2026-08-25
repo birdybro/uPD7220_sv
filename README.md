@@ -39,3 +39,8 @@ make test-random GDC_SEED=29216
 See [`docs/verification.md`](docs/verification.md) for the test architecture and
 current scope. Additional formal and synthesis targets will be introduced with
 the implementation milestones they verify.
+
+The independent, edge-steppable architectural model begins in
+[`model/upd7220_model.py`](model/upd7220_model.py). Its implemented scope is
+intentionally narrower than the final command set and is expanded only with
+primary-source-backed tests.

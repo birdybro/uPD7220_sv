@@ -72,6 +72,12 @@ simulation fails.
 The architectural model will not import RTL implementation logic. Cocotb agents
 translate only between pin activity and independent model/test data structures.
 
+The model represents undocumented pre-RESET status as explicitly unavailable,
+advances one rising 2xWCLK edge per call, and hashes architectural state and the
+full 256K-word display memory deterministically. Its RESET primitive preserves
+programmed parameter state while clearing the FIFO and active operations, as the
+base-device data sheet requires.
+
 ## Failure policy
 
 A failing random vector must be retained as a fixed regression when practical.
