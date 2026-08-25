@@ -4,7 +4,7 @@ PYTHON ?= python3
 VENV ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 VENV_STAMP := $(VENV)/.upd7220-dev-ready
-RTL_SOURCES := rtl/upd7220_pkg.sv rtl/upd7220_core.sv rtl/upd7220.sv
+RTL_SOURCES := rtl/upd7220_pkg.sv rtl/upd7220_host_if.sv rtl/upd7220_core.sv rtl/upd7220.sv
 
 setup-dev: $(VENV_STAMP)
 

@@ -10,28 +10,23 @@ from tests.support.seed import SeedContext
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RTL_SOURCES = [
-    ROOT / "rtl" / "upd7220_pkg.sv",
-    ROOT / "rtl" / "upd7220_host_if.sv",
-    ROOT / "rtl" / "upd7220_core.sv",
-]
 
 
 @pytest.mark.rtl
-def test_clock_reset_foundation(gdc_seed: SeedContext) -> None:
-    build_directory = ROOT / "build" / "sim" / f"foundation-seed-{gdc_seed.seed}"
+def test_host_interface(gdc_seed: SeedContext) -> None:
+    build_directory = ROOT / "build" / "sim" / f"host-if-seed-{gdc_seed.seed}"
     runner = get_runner(os.environ.get("SIM", "verilator"))
     runner.build(
-        sources=RTL_SOURCES,
-        hdl_toplevel="upd7220_core",
+        sources=[ROOT / "rtl" / "upd7220_host_if.sv"],
+        hdl_toplevel="upd7220_host_if",
         build_dir=build_directory,
         always=True,
         waves=True,
     )
     try:
         runner.test(
-            hdl_toplevel="upd7220_core",
-            test_module="tests.cocotb.test_foundation",
+            hdl_toplevel="upd7220_host_if",
+            test_module="tests.cocotb.test_host_if",
             build_dir=build_directory,
             waves=True,
             extra_env={"GDC_SEED": str(gdc_seed.seed)},

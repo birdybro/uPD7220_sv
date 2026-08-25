@@ -29,6 +29,19 @@ display-memory buses are released, V/EXT SYNC is an input, DBIN is inactive,
 ALE is high, DRQ and sync are low, and display blanking is asserted. These values
 describe FPGA integration reset, not undocumented silicon power-up behavior.
 
+## Asynchronous host interface
+
+RD and WR are asynchronous chip pins, not 2xWCLK-derived clocks. RD's falling
+edge captures status or FIFO data into a host data register; DB is driven only
+while RD remains low. WR's rising edge captures DB and the A0 command/parameter
+tag. FIFO-read completion is likewise detected at RD's rising edge only when A0
+selects FIFO data.
+
+Stable event toggles pass through two-flop synchronizers into 2xWCLK. Captured
+data remains unchanged until well after the event is consumed. This relies on
+the data sheet's four-TCY recovery requirement and avoids an arbitrary faster
+internal clock. Setup/hold and minimum-pulse checks remain simulation-only.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:

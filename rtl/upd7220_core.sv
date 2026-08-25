@@ -34,17 +34,42 @@ module upd7220_core #(
 
     logic word_half_q;
     logic _unused_inputs;
+    logic integration_initialized_q;
+    logic [7:0] status_value;
+    logic       unused_fifo_write_valid;
+    logic       unused_fifo_write_is_command;
+    logic [7:0] unused_fifo_write_data;
+    logic       unused_fifo_read_pop;
 
     assign _unused_inputs = ^{
-        host_rd_n,
-        host_wr_n,
-        host_a0,
-        host_db_i,
         v_ext_sync_i,
         dack_n,
         mem_ad_i,
-        lpen
+        lpen,
+        unused_fifo_write_valid,
+        unused_fifo_write_is_command,
+        unused_fifo_write_data,
+        unused_fifo_read_pop
     };
+
+    assign status_value = integration_initialized_q ? 8'h04 : 8'hxx;
+
+    upd7220_host_if host_if (
+        .clk_2x,
+        .integration_reset_n,
+        .host_rd_n,
+        .host_wr_n,
+        .host_a0,
+        .host_db_i,
+        .host_db_o,
+        .host_db_oe,
+        .status_i                  (status_value),
+        .fifo_read_data_i          (8'h00),
+        .fifo_write_valid          (unused_fifo_write_valid),
+        .fifo_write_is_command     (unused_fifo_write_is_command),
+        .fifo_write_data           (unused_fifo_write_data),
+        .fifo_read_pop             (unused_fifo_read_pop)
+    );
 
     generate
         if (!upd7220_pkg::valid_variant(GDC_VARIANT)) begin : g_invalid_variant
@@ -56,10 +81,9 @@ module upd7220_core #(
     // All functional timing remains clocked from 2xWCLK; no derived clock exists.
     always_ff @(posedge clk_2x or negedge integration_reset_n) begin
         if (!integration_reset_n) begin
+            integration_initialized_q <= 1'b1;
             word_half_q  <= 1'b0;
             word_time_ce <= 1'b0;
-            host_db_o    <= 8'h00;
-            host_db_oe   <= 1'b0;
             mem_dbin_n   <= 1'b1;
             hsync        <= 1'b0;
             v_ext_sync_o <= 1'b0;
