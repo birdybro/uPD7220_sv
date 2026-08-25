@@ -23,9 +23,19 @@ See [`references/README.md`](references/README.md) for the corpus policy and
 ## Current checks
 
 ```sh
+make setup-dev
 make lint
 make test
 ```
 
-Additional RTL, simulation, formal, and synthesis targets will be introduced
-with the implementation milestones they verify.
+`make test` currently runs Python unit tests and a Verilator+cocotb RTL smoke
+simulation. Simulation output, seed-specific build files, and waveforms are
+written below `build/`. Set a deterministic seed with `GDC_SEED`, for example:
+
+```sh
+make test-random GDC_SEED=29216
+```
+
+See [`docs/verification.md`](docs/verification.md) for the test architecture and
+current scope. Additional formal and synthesis targets will be introduced with
+the implementation milestones they verify.

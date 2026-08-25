@@ -6,8 +6,10 @@ references/extracted/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.venv/
 
 # Simulation artefacts
+build/
 obj_dir/
 sim_build/
 *.fst
