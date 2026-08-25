@@ -1,0 +1,13 @@
+# Reference PDFs are fetched locally. Redistribution rights are unclear.
+references/downloads/
+
+# Python and test artefacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Simulation artefacts
+obj_dir/
+sim_build/
+*.fst
+*.vcd
