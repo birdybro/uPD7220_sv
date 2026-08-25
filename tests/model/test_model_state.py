@@ -68,7 +68,7 @@ def test_two_clock_edges_make_one_word_time() -> None:
     assert model.last_inputs == EdgeInputs()
 
 
-def test_fifo_stores_command_metadata_and_reaches_exact_capacity() -> None:
+def test_fifo_stores_metadata_and_seventeenth_host_byte_overwrites_oldest() -> None:
     model = GdcModel()
     model.reset_command()
     for value in range(FIFO_CAPACITY):
@@ -79,8 +79,10 @@ def test_fifo_stores_command_metadata_and_reaches_exact_capacity() -> None:
     assert not (model.status() & 0x04)
     assert model.fifo_entries[0].is_command
     assert not model.fifo_entries[1].is_command
-    with pytest.raises(FifoOverflowError):
-        model.host_write(0xFF, is_command=False)
+    model.host_write(0xFF, is_command=False)
+    assert model.fifo_occupancy == FIFO_CAPACITY
+    assert model.command_processor_read().value == 1
+    assert model.fifo_entries[-1].value == 0xFF
 
 
 def test_fifo_read_turnaround_discards_queued_writes() -> None:
@@ -95,8 +97,13 @@ def test_fifo_read_turnaround_discards_queued_writes() -> None:
 
     assert model.fifo_direction is FifoDirection.READ_FROM_GDC
     assert model.fifo_occupancy == 2
+    assert not (model.status() & 0x01)
+    for _ in range(4):
+        model.step_edge()
     assert model.status() & 0x01
     assert model.host_read_fifo() == 0x34
+    for _ in range(4):
+        model.step_edge()
     assert model.host_read_fifo() == 0x12
     assert not (model.status() & 0x01)
     assert model.status() & 0x04

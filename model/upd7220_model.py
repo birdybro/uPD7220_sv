@@ -161,6 +161,8 @@ class GdcModel:
         self.command_state = CommandState.IDLE
         self.fifo_direction = FifoDirection.WRITE_TO_GDC
         self._fifo: deque[FifoEntry] = deque()
+        self.data_register: int | None = None
+        self.read_refill_count = 0
 
     @staticmethod
     def _word(value: int) -> int:
@@ -196,6 +198,8 @@ class GdcModel:
         self.command_state = CommandState.IDLE
         self.fifo_direction = FifoDirection.WRITE_TO_GDC
         self._fifo.clear()
+        self.data_register = None
+        self.read_refill_count = 0
 
         # RESET initializes internal timing counters, but the primary data sheet
         # explicitly says it does not modify already loaded parameters.
@@ -211,6 +215,15 @@ class GdcModel:
         self.word_half ^= 1
         if self.word_half == 0:
             self.word_time_count += 1
+        if self.fifo_direction is FifoDirection.READ_FROM_GDC:
+            if self.data_register is None and self.read_refill_count:
+                self.read_refill_count -= 1
+                if self.read_refill_count == 0:
+                    if not self._fifo:
+                        raise ModelError("FIFO refill completed without ring data")
+                    self.data_register = self._fifo.popleft().value
+            elif self.data_register is None and self._fifo:
+                self.read_refill_count = 4
         return self.architectural_state()
 
     def host_write(self, value: int, *, is_command: bool) -> None:
@@ -222,7 +235,7 @@ class GdcModel:
             self.fifo_direction = FifoDirection.WRITE_TO_GDC
             self.command_state = CommandState.IDLE
         if len(self._fifo) == FIFO_CAPACITY:
-            raise FifoOverflowError("host FIFO is full")
+            self._fifo.popleft()
         self._fifo.append(FifoEntry(value=value, is_command=is_command))
 
     def command_processor_read(self) -> FifoEntry:
@@ -235,6 +248,8 @@ class GdcModel:
         self._fifo.clear()
         self.fifo_direction = FifoDirection.READ_FROM_GDC
         self.command_state = CommandState.READ_RESPONSE
+        self.data_register = None
+        self.read_refill_count = 0
 
     def response_write(self, value: int) -> None:
         if self.fifo_direction is not FifoDirection.READ_FROM_GDC:
@@ -242,11 +257,17 @@ class GdcModel:
         if len(self._fifo) == FIFO_CAPACITY:
             raise FifoOverflowError("host FIFO is full")
         self._fifo.append(FifoEntry(value=value, is_command=False))
+        if self.data_register is None and self.read_refill_count == 0:
+            self.read_refill_count = 4
 
     def host_read_fifo(self) -> int:
-        if self.fifo_direction is not FifoDirection.READ_FROM_GDC or not self._fifo:
+        if self.fifo_direction is not FifoDirection.READ_FROM_GDC or self.data_register is None:
             raise FifoUnderflowError("no GDC-to-CPU FIFO byte is available")
-        return self._fifo.popleft().value
+        value = self.data_register
+        self.data_register = None
+        if self._fifo:
+            self.read_refill_count = 4
+        return value
 
     def status(self) -> int:
         if not self.has_reset:
@@ -255,7 +276,8 @@ class GdcModel:
         if self.variant is GdcVariant.UPD7220A and self.vertical_blank_status_select:
             sr6 = self.vertical_blank
         data_ready = (
-            self.fifo_direction is FifoDirection.READ_FROM_GDC and bool(self._fifo)
+            self.fifo_direction is FifoDirection.READ_FROM_GDC
+            and self.data_register is not None
         )
         return (
             (int(self.light_pen_detected) << 7)
@@ -294,6 +316,8 @@ class GdcModel:
             "status": self.status() if self.has_reset else None,
             "fifo_direction": self.fifo_direction.value,
             "fifo": [asdict(entry) for entry in self._fifo],
+            "data_register": self.data_register,
+            "read_refill_count": self.read_refill_count,
             "command_state": self.command_state.value,
             "ead": self.ead,
             "dad": self.dad,

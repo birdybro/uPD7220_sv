@@ -42,6 +42,20 @@ data remains unchanged until well after the event is consumed. This relies on
 the data sheet's four-TCY recovery requirement and avoids an arbitrary faster
 internal clock. Setup/hold and minimum-pulse checks remain simulation-only.
 
+## Half-duplex FIFO
+
+`upd7220_fifo` implements the documented 16-entry tagged ring shared by both
+directions. In write mode, entries contain the A0 command/parameter tag and the
+host has priority over a simultaneous command-processor pop. A protocol-violating
+seventeenth host write reproduces the manual's oldest-byte overwrite behavior;
+occupancy never exceeds 16.
+
+Direction turnaround clears the entire ring. The read direction also has the
+documented separate host data register: FIFO EMPTY describes the ring, while
+DATA READY describes that register. A waiting byte takes four 2xWCLK edges to
+move from the ring into the register. A command write aborts read mode and is
+accepted even when the read ring reports full.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:

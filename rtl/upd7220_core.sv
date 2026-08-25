@@ -36,23 +36,37 @@ module upd7220_core #(
     logic _unused_inputs;
     logic integration_initialized_q;
     logic [7:0] status_value;
-    logic       unused_fifo_write_valid;
-    logic       unused_fifo_write_is_command;
-    logic [7:0] unused_fifo_write_data;
-    logic       unused_fifo_read_pop;
+    logic       fifo_write_valid;
+    logic       fifo_write_is_command;
+    logic [7:0] fifo_write_data;
+    logic       fifo_read_pop;
+    logic [7:0] fifo_read_data;
+    logic       fifo_empty;
+    logic       fifo_full;
+    logic       fifo_data_ready;
+    logic       unused_command_valid;
+    logic       unused_command_is_command;
+    logic [7:0] unused_command_data;
+    logic       unused_fifo_read_direction;
+    logic [4:0] unused_fifo_occupancy;
+    logic       unused_response_ready;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
         dack_n,
         mem_ad_i,
         lpen,
-        unused_fifo_write_valid,
-        unused_fifo_write_is_command,
-        unused_fifo_write_data,
-        unused_fifo_read_pop
+        unused_command_valid,
+        unused_command_is_command,
+        unused_command_data,
+        unused_fifo_read_direction,
+        unused_fifo_occupancy,
+        unused_response_ready
     };
 
-    assign status_value = integration_initialized_q ? 8'h04 : 8'hxx;
+    assign status_value = integration_initialized_q
+        ? {5'b0, fifo_empty, fifo_full, fifo_data_ready}
+        : 8'hxx;
 
     upd7220_host_if host_if (
         .clk_2x,
@@ -64,11 +78,35 @@ module upd7220_core #(
         .host_db_o,
         .host_db_oe,
         .status_i                  (status_value),
-        .fifo_read_data_i          (8'h00),
-        .fifo_write_valid          (unused_fifo_write_valid),
-        .fifo_write_is_command     (unused_fifo_write_is_command),
-        .fifo_write_data           (unused_fifo_write_data),
-        .fifo_read_pop             (unused_fifo_read_pop)
+        .fifo_read_data_i          (fifo_read_data),
+        .fifo_write_valid,
+        .fifo_write_is_command,
+        .fifo_write_data,
+        .fifo_read_pop
+    );
+
+    upd7220_fifo fifo (
+        .clk_2x,
+        .integration_reset_n,
+        .fifo_reset                (1'b0),
+        .host_write_valid          (fifo_write_valid),
+        .host_write_is_command     (fifo_write_is_command),
+        .host_write_data           (fifo_write_data),
+        .host_read_pop             (fifo_read_pop),
+        .command_valid             (unused_command_valid),
+        .command_is_command        (unused_command_is_command),
+        .command_data              (unused_command_data),
+        .command_pop               (1'b0),
+        .turn_to_read              (1'b0),
+        .response_valid            (1'b0),
+        .response_data             (8'h00),
+        .response_ready            (unused_response_ready),
+        .host_read_data            (fifo_read_data),
+        .fifo_empty,
+        .fifo_full,
+        .data_ready                (fifo_data_ready),
+        .read_direction            (unused_fifo_read_direction),
+        .occupancy                 (unused_fifo_occupancy)
     );
 
     generate
