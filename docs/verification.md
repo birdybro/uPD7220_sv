@@ -2,8 +2,9 @@
 
 The verification environment drives the Python architectural model and
 SystemVerilog RTL with identical deterministic stimuli. Its current scope
-covers reset, FIFO/parser/register behavior and horizontal raster pin timing;
-later command, memory, drawing, DMA, and vertical timing layers remain pending.
+covers reset, FIFO/parser/register behavior, horizontal raster timing, and
+noninterlaced vertical/master-sync pin timing. Later command, memory, drawing,
+DMA, interlace, and slave-sync layers remain pending.
 
 ## Tool bootstrap
 
@@ -35,9 +36,10 @@ make test       # normal unit and RTL regression
 make test-all   # currently aliases the complete available regression
 ```
 
-The timing target currently checks every horizontal HFP/HSYNC/HBP/AW
-transition, the two-rising-edge word cadence, falling-edge video output
-changes, BLANK display-enable behavior, and reset from an active sync interval.
+The timing target checks every horizontal HFP/HSYNC/HBP/AW and noninterlaced
+vertical VFP/VS/VBP/AL transition, the two-rising-edge word cadence,
+falling-edge video output changes, composed BLANK behavior, and reset from
+active horizontal and vertical sync intervals.
 
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent

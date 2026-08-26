@@ -98,8 +98,8 @@ all-zero fields expand to their documented power-of-two maximum.
 SYNC's opcode DE bit updates the requested display-enable state without
 entering idle or clearing other state. VSYNC's M bit directly controls whether
 the physical V/EXT SYNC pin is driven (master) or released as an input (slave).
-Raster waveform generation on that pin belongs to the vertical timing block and
-is not implemented by this register milestone.
+The noninterlaced master waveform comes from the vertical timing block;
+interlaced and slave resynchronization behavior remain later timing work.
 
 ## Horizontal raster timing
 
@@ -112,8 +112,23 @@ blank, active-word qualification, and a line-start pulse.
 HSYNC is high only in the sync interval. BLANK is high throughout all three
 horizontal retrace intervals and remains high in the active interval when SYNC
 has disabled display output. Horizontal timing continues while display output
-is disabled. Vertical blanking and memory-cycle ownership will add further
-BLANK qualifications in their respective milestones.
+is disabled. Vertical blanking is also combined into BLANK; memory-cycle
+ownership will add the remaining qualification in its milestone.
+
+## Noninterlaced vertical raster timing
+
+`upd7220_vertical_timing` consumes the horizontal block's combinational
+line-advance enable on the same falling edge that begins HFP. It counts VFP,
+VSYNC, VBP, and active-line intervals, asserts vertical blank outside active
+lines, and supplies the master V/EXT SYNC pin waveform. The independent model
+uses one absolute line position rather than the RTL's interval counter.
+
+The module currently generates the documented noninterlaced sequence for all
+framing codes. This is correct while the device is in idle mode, where the
+manual requires noninterlaced synchronization even when interlace is
+programmed. START/idle control and the two-field half-line sequence are not yet
+implemented. The inferred RESET phase origin is recorded in
+`docs/open_questions.md`.
 
 ## Compatibility profiles
 

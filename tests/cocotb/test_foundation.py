@@ -200,3 +200,42 @@ async def vsync_commands_control_the_external_sync_pin_direction(dut: object) ->
     assert int(dut.v_ext_sync_oe.value) == 1
     await host_command_and_settle(dut, 0x6E)
     assert int(dut.v_ext_sync_oe.value) == 0
+
+
+@cocotb.test()
+async def master_vsync_pin_has_the_programmed_default_line_width(dut: object) -> None:
+    cocotb.start_soon(Clock(dut.clk_2x, 200, unit="ns").start())
+    dut.host_rd_n.value = 1
+    dut.host_wr_n.value = 1
+    dut.host_a0.value = 0
+    dut.host_db_i.value = 0
+    dut.v_ext_sync_i.value = 0
+    dut.dack_n.value = 1
+    dut.mem_ad_i.value = 0
+    dut.lpen.value = 0
+    dut.integration_reset_n.value = 0
+    await sample_after_rising_edge(dut)
+    await Timer(1, unit="ps")
+    dut.integration_reset_n.value = 1
+
+    await host_command_and_settle(dut, 0x00)
+    await host_command_and_settle(dut, 0x6F)
+    assert int(dut.v_ext_sync_oe.value) == 1
+
+    falling_index = 0
+    while not int(dut.v_ext_sync_o.value):
+        await sample_after_falling_edge(dut)
+        falling_index += 1
+        assert falling_index < 800
+        await Timer(1, unit="ps")
+    high_start = falling_index
+
+    while int(dut.v_ext_sync_o.value):
+        await sample_after_falling_edge(dut)
+        falling_index += 1
+        assert falling_index - high_start <= 320
+        await Timer(1, unit="ps")
+
+    # Zero-valued retained integration parameters decode as VS=32 lines and
+    # HFP+HS+HBP+AW=5 words, each two clocks: 32 * 5 * 2 falling edges.
+    assert falling_index - high_start == 320

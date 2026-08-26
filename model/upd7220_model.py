@@ -64,6 +64,13 @@ class HorizontalPhase(str, Enum):
     ACTIVE = "active"
 
 
+class VerticalPhase(str, Enum):
+    FRONT_PORCH = "front_porch"
+    SYNC = "sync"
+    BACK_PORCH = "back_porch"
+    ACTIVE = "active"
+
+
 class CommandKind(str, Enum):
     RESET = "reset"
     SYNC = "sync"
@@ -258,6 +265,8 @@ class GdcModel:
         self.blank = True
         self.horizontal_word_position = 0
         self.horizontal_phase: HorizontalPhase | None = None
+        self.vertical_line_position = 0
+        self.vertical_phase: VerticalPhase | None = None
         self._timing_display_enabled = False
         self.vertical_blank = False
         self.vertical_sync = False
@@ -306,6 +315,8 @@ class GdcModel:
         self.blank = True
         self.horizontal_word_position = 0
         self.horizontal_phase = None
+        self.vertical_line_position = 0
+        self.vertical_phase = None
         self._timing_display_enabled = False
         self.vertical_blank = False
         self.vertical_sync = False
@@ -361,19 +372,40 @@ class GdcModel:
         """
         self.falling_edge_count += 1
         self._timing_display_enabled = self.display_enabled
-        counts = self._horizontal_counts()
-        if counts is not None:
-            total_words = sum(counts)
+        horizontal_counts = self._horizontal_counts()
+        line_advance = False
+        if horizontal_counts is not None:
+            total_words = sum(horizontal_counts)
+            line_advance = self.word_time_ce and (
+                self.horizontal_word_position == total_words - 1
+            )
             if self.word_time_ce:
                 self.horizontal_word_position = (
                     self.horizontal_word_position + 1
                 ) % total_words
-            self._update_horizontal_outputs(counts)
+            self._update_horizontal_outputs(horizontal_counts)
         else:
             self.horizontal_phase = None
             self.horizontal_sync = False
             self.horizontal_blank = False
-            self.blank = True
+
+        vertical_counts = self._vertical_counts()
+        if vertical_counts is not None:
+            if line_advance:
+                self.vertical_line_position = (
+                    self.vertical_line_position + 1
+                ) % sum(vertical_counts)
+            self._update_vertical_outputs(vertical_counts)
+        else:
+            self.vertical_phase = None
+            self.vertical_sync = False
+            self.vertical_blank = False
+
+        self.blank = (
+            self.horizontal_blank
+            or self.vertical_blank
+            or not self._timing_display_enabled
+        )
         return self.architectural_state()
 
     def _horizontal_counts(self) -> tuple[int, int, int, int] | None:
@@ -401,7 +433,32 @@ class GdcModel:
             self.horizontal_phase = HorizontalPhase.ACTIVE
         self.horizontal_sync = self.horizontal_phase is HorizontalPhase.SYNC
         self.horizontal_blank = self.horizontal_phase is not HorizontalPhase.ACTIVE
-        self.blank = self.horizontal_blank or not self._timing_display_enabled
+
+    def _vertical_counts(self) -> tuple[int, int, int, int] | None:
+        vfp = self.sync.vertical_front_porch
+        sync = self.sync.vsync_width
+        vbp = self.sync.vertical_back_porch
+        active = self.sync.active_lines
+        if vfp is None or sync is None or vbp is None or active is None:
+            return None
+        typed_counts = (vfp, sync, vbp, active)
+        if any(count <= 0 for count in typed_counts):
+            raise ModelError("vertical timing intervals must be positive")
+        return typed_counts
+
+    def _update_vertical_outputs(self, counts: tuple[int, int, int, int]) -> None:
+        vfp, sync, vbp, _active = counts
+        position = self.vertical_line_position
+        if position < vfp:
+            self.vertical_phase = VerticalPhase.FRONT_PORCH
+        elif position < vfp + sync:
+            self.vertical_phase = VerticalPhase.SYNC
+        elif position < vfp + sync + vbp:
+            self.vertical_phase = VerticalPhase.BACK_PORCH
+        else:
+            self.vertical_phase = VerticalPhase.ACTIVE
+        self.vertical_sync = self.vertical_phase is VerticalPhase.SYNC
+        self.vertical_blank = self.vertical_phase is not VerticalPhase.ACTIVE
 
     def host_write(self, value: int, *, is_command: bool) -> None:
         """Place a tagged host byte in the CPU-to-GDC FIFO."""
@@ -621,6 +678,12 @@ class GdcModel:
             ),
             "horizontal_sync": self.horizontal_sync,
             "horizontal_blank": self.horizontal_blank,
+            "vertical_line_position": self.vertical_line_position,
+            "vertical_phase": (
+                self.vertical_phase.value if self.vertical_phase else None
+            ),
+            "vertical_sync": self.vertical_sync,
+            "vertical_blank": self.vertical_blank,
             "blank": self.blank,
             "status": self.status() if self.has_reset else None,
             "fifo_direction": self.fifo_direction.value,

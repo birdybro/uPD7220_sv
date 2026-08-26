@@ -7,9 +7,9 @@ This project is under active incremental development. It does **not** yet claim
 complete functional or cycle accuracy. The implemented scope currently covers
 the physical/split-bus wrappers, asynchronous host transfers, the half-duplex
 FIFO, base opcode parsing, dedicated RESET, and RESET/SYNC/VSYNC register
-programming, plus falling-edge-aligned horizontal raster/HSYNC/BLANK timing.
-Accuracy claims are limited to primary-source requirements with executable
-tests.
+programming, falling-edge-aligned horizontal raster timing, and noninterlaced
+vertical/master-sync timing. Accuracy claims are limited to primary-source
+requirements with executable tests.
 
 ## Reference corpus
 
@@ -56,4 +56,5 @@ primary-source-backed tests.
 [`rtl/upd7220_core.sv`](rtl/upd7220_core.sv) is intended for FPGA integration and
 verification. See [`docs/architecture.md`](docs/architecture.md),
 [`docs/commands.md`](docs/commands.md), and [`docs/timing.md`](docs/timing.md)
-for the exact implemented boundary and remaining verification work.
+for the exact implemented boundary and [`docs/open_questions.md`](docs/open_questions.md)
+for unresolved source ambiguities.

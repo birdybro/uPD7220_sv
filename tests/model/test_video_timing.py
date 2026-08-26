@@ -3,7 +3,7 @@ from __future__ import annotations
 from model.upd7220_model import GdcModel, HorizontalPhase
 
 
-SYNC_PARAMETERS = (0x02, 0x00, 0x01, 0x04, 0x02, 0x00, 0x00, 0x00)
+SYNC_PARAMETERS = (0x02, 0x00, 0x21, 0x04, 0x02, 0x01, 0x01, 0x04)
 
 
 def issue(model: GdcModel, opcode: int, parameters: tuple[int, ...] = ()) -> None:
@@ -28,13 +28,12 @@ def advance_word(model: GdcModel) -> None:
             return
 
 
-def pins(model: GdcModel) -> tuple[HorizontalPhase | None, int, bool, bool, bool]:
+def pins(model: GdcModel) -> tuple[HorizontalPhase | None, int, bool, bool]:
     return (
         model.horizontal_phase,
         model.horizontal_word_position,
         model.horizontal_sync,
         model.horizontal_blank,
-        model.blank,
     )
 
 
@@ -44,18 +43,18 @@ def test_absolute_position_model_matches_documented_four_intervals() -> None:
     issue(model, 0x0F, SYNC_PARAMETERS)
 
     falling_after_rising(model)
-    assert pins(model) == (HorizontalPhase.FRONT_PORCH, 0, False, True, True)
+    assert pins(model) == (HorizontalPhase.FRONT_PORCH, 0, False, True)
 
     expected = (
-        (HorizontalPhase.FRONT_PORCH, 1, False, True, True),
-        (HorizontalPhase.SYNC, 2, True, True, True),
-        (HorizontalPhase.SYNC, 3, True, True, True),
-        (HorizontalPhase.BACK_PORCH, 4, False, True, True),
-        (HorizontalPhase.BACK_PORCH, 5, False, True, True),
-        (HorizontalPhase.BACK_PORCH, 6, False, True, True),
-        (HorizontalPhase.ACTIVE, 7, False, False, False),
-        (HorizontalPhase.ACTIVE, 8, False, False, False),
-        (HorizontalPhase.FRONT_PORCH, 0, False, True, True),
+        (HorizontalPhase.FRONT_PORCH, 1, False, True),
+        (HorizontalPhase.SYNC, 2, True, True),
+        (HorizontalPhase.SYNC, 3, True, True),
+        (HorizontalPhase.BACK_PORCH, 4, False, True),
+        (HorizontalPhase.BACK_PORCH, 5, False, True),
+        (HorizontalPhase.BACK_PORCH, 6, False, True),
+        (HorizontalPhase.ACTIVE, 7, False, False),
+        (HorizontalPhase.ACTIVE, 8, False, False),
+        (HorizontalPhase.FRONT_PORCH, 0, False, True),
     )
     observed = []
     for _ in expected:
@@ -80,6 +79,8 @@ def test_outputs_wait_for_falling_edge_and_blank_tracks_display_enable() -> None
     model.step_falling_edge()
     assert pins(model)[:2] == (HorizontalPhase.SYNC, 2)
 
+    while model.vertical_phase is None or model.vertical_phase.value != "active":
+        advance_word(model)
     while model.horizontal_phase is not HorizontalPhase.ACTIVE:
         advance_word(model)
     assert not model.blank
@@ -105,4 +106,4 @@ def test_reset_restarts_retained_horizontal_timing() -> None:
     assert model.horizontal_word_position == 0
     assert model.blank
     falling_after_rising(model)
-    assert pins(model) == (HorizontalPhase.FRONT_PORCH, 0, False, True, True)
+    assert pins(model) == (HorizontalPhase.FRONT_PORCH, 0, False, True)

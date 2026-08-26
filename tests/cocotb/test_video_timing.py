@@ -29,6 +29,7 @@ async def start_and_reset(dut: object) -> None:
     dut.hsync_width.value = 2
     dut.horizontal_front_porch.value = 2
     dut.horizontal_back_porch.value = 3
+    dut.vertical_blank.value = 0
     cocotb.start_soon(Clock(dut.clk_2x, 200, unit="ns").start())
     await falling(dut)
     await finish_edge()

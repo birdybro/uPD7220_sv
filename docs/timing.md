@@ -119,13 +119,14 @@ retain their earlier values. Decoded counts are:
 
 P1 uses C=P1[5] and G=P1[1] for mixed/graphics/character mode; I=P1[3]
 and S=P1[0] select framing; D=P1[2] enables refresh; F=P1[4] restricts
-drawing to retrace when set. Horizontal count/edge behavior is normalized
-below; vertical timing follows in the next raster milestone.
+drawing to retrace when set. Horizontal and noninterlaced vertical count/edge
+behavior is normalized below.
 
 SYNC opcode bit DE changes requested display enable. VSYNC opcode bit M changes
 the V/EXT SYNC pin direction: M=0 releases it for slave input and M=1 drives it
 for master output. The direction change is end-to-end tested through the host
-interface; the vertical waveform itself is pending.
+interface. In master mode, the noninterlaced waveform described below reaches
+the output side of that pin; slave acquisition and interlace remain pending.
 
 ## Horizontal raster edge table
 
@@ -160,6 +161,37 @@ checks and implementation timing analysis. `tests/test_rtl_video_timing.py`
 checks the complete boundary trace and `tests/test_rtl_foundation.py` verifies
 the end-to-end two-clock cadence through the integrated core.
 
+## Noninterlaced vertical raster edge table
+
+The vertical intervals have the cyclic order VFP, VS, VBP, and AL. The
+noninterlaced implementation uses VFP as the reset origin; the absence of an
+explicit primary-source reset origin is recorded as OQ-001 in
+`docs/open_questions.md`. With `q` as the zero-based line position:
+
+| Position range | Interval | VSYNC | vertical blank |
+|---|---|---:|---:|
+| `0 <= q < VFP` | front porch | 0 | 1 |
+| `VFP <= q < VFP+VS` | sync | 1 | 1 |
+| `VFP+VS <= q < VFP+VS+VBP` | back porch | 0 | 1 |
+| remaining `AL` lines | active | 0 | 0 |
+
+One field consumes `(VFP + VS + VBP + AL)` complete horizontal lines. Every
+vertical transition consumes the horizontal block's `line_advance_ce` on the
+same falling edge that changes from the last AW word to the first HFP word.
+Thus normal VSYNC transitions coincide with the leading BLANK edge, as required
+by the interlace discussion's first-field rule and the page-31 TCO waveform.
+
+The externally visible blank output is currently:
+
+```text
+BLANK = not display_enable or horizontal_blank or vertical_blank
+```
+
+Display-memory ownership will later suppress non-display fetches as an
+additional term. `tests/test_rtl_vertical_timing.py` checks every line boundary;
+`tests/test_rtl_foundation.py` checks that a 32-line VS pulse reaches the master
+pin with exactly 320 falling-edge intervals for the default five-word line.
+
 ## Display-memory electrical timing (base 82720)
 
 The following page-27 values are recorded now for the memory-cycle milestones;
@@ -187,7 +219,7 @@ columns will become assertions/checks, not synthesizable delay statements.
 The following source diagrams still require machine-readable edge tables as
 their implementation milestones arrive: display read/write/RMW cycles,
 display-fetch and refresh ownership, DRQ/DACK sequencing, drawing execution
-latency, vertical raster edges, master/slave synchronization, light-pen
+latency, interlaced vertical raster edges, slave synchronization, light-pen
 sampling/deglitching, interlace half-lines, and active-display memory
 arbitration. Until those tables and tests exist, the project does not claim
 cycle accuracy for those subsystems.

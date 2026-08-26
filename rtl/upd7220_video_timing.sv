@@ -11,12 +11,14 @@ module upd7220_video_timing (
     input  logic [5:0]                      hsync_width,
     input  logic [6:0]                      horizontal_front_porch,
     input  logic [6:0]                      horizontal_back_porch,
+    input  logic                            vertical_blank,
 
     output logic                            hsync,
     output logic                            horizontal_blank,
     output logic                            blank,
     output logic                            active_word,
     output logic                            line_start,
+    output logic                            line_advance_ce,
     output upd7220_pkg::horizontal_phase_t horizontal_phase,
     output logic [8:0]                      horizontal_word_index
 );
@@ -47,8 +49,11 @@ module upd7220_video_timing (
     assign hsync = horizontal_phase_q == upd7220_pkg::HPHASE_SYNC;
     assign horizontal_blank = horizontal_phase_q != upd7220_pkg::HPHASE_ACTIVE;
     assign active_word = horizontal_phase_q == upd7220_pkg::HPHASE_ACTIVE;
-    assign blank = !display_enable_q || horizontal_blank;
+    assign blank = !display_enable_q || horizontal_blank || vertical_blank;
     assign line_start = line_start_q;
+    assign line_advance_ce = word_time_ce
+        && (horizontal_phase_q == upd7220_pkg::HPHASE_ACTIVE)
+        && (horizontal_word_index_q >= (current_phase_length - 9'd1));
 
     // Intel 82720 data-sheet page 31 specifies TCO from the falling edge of
     // 2xWCLK to HSYNC/BLANK and the other video outputs. The word-time enable

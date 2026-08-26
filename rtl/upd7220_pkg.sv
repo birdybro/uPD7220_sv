@@ -53,6 +53,13 @@ package upd7220_pkg;
         HPHASE_ACTIVE      = 2'd3
     } horizontal_phase_t;
 
+    typedef enum logic [1:0] {
+        VPHASE_FRONT_PORCH = 2'd0,
+        VPHASE_SYNC        = 2'd1,
+        VPHASE_BACK_PORCH  = 2'd2,
+        VPHASE_ACTIVE      = 2'd3
+    } vertical_phase_t;
+
     localparam int unsigned HOST_DATA_WIDTH = 8;
     localparam int unsigned MEM_DATA_WIDTH = 16;
     localparam int unsigned FIFO_DEPTH = 16;
