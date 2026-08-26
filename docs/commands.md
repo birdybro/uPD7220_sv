@@ -29,7 +29,7 @@ read-modify-write modifier, `DE` is display enable, `M` selects sync master, and
 | BCTRL | `0C`, `0D` (`0000110DE`) | 0 | Change display enable without leaving idle | Completes with opcode | Control effect unit verified |
 | ZOOM | `46` | 1 | Display and graphics-character zoom | Completes after P1 | Decode verified |
 | CURS | `49` | 2 in character mode; 3 in graphics mode | EAD and, for graphics, dAD expanded to a one-of-16 mask | Parser accepts a three-byte maximum; a new command legally terminates after P2 | Register effect unit verified |
-| PRAM | `70`–`7F` (`0111SA`) | 1 through `16-SA` | Sequential Parameter RAM locations SA through 15 | Ends at location 15 or when a new command arrives | Decode verified |
+| PRAM | `70`–`7F` (`0111SA`) | 1 through `16-SA` | Sequential Parameter RAM locations SA through 15 | Ends at location 15 or when a new command arrives | Raw register effect and host path unit verified |
 | PITCH | `47` | 1 | Load literal base 8-bit display-memory horizontal pitch | Completes after P1 | Register effect unit verified |
 | WDAT | `001TT0MM` | Repeated groups of 2 for word or 1 for byte | Pattern/data input for display-memory RMW writes | Remains active for further groups until a new command | Decode verified |
 | MASK | `4A` | 2 | 16-bit mask, low byte then high byte | Completes after P2 | Decode verified |
@@ -104,6 +104,13 @@ claims constrain only the documented low two bits. CURD snapshots EAD and mask
 when the command processor interprets the opcode, turns the shared FIFO to read
 mode, and honors the existing four-2xWCLK transfer delay into the separate host
 data register. A later command discards all unread response bytes.
+
+PRAM opcode bits 3:0 select the initial RAM address SA. Each accepted parameter
+is written to `RA[SA + parameter_index]`; the command's decoded maximum prevents
+crossing RA15. A later command may interrupt the stream after any received byte,
+and all unwritten locations retain their previous contents. The raw byte store
+also survives functional RESET. Display-partition field decoding and use of
+RA8–RA15 as graphics patterns are separate later execution milestones.
 
 ## Variant notes
 

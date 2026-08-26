@@ -234,7 +234,7 @@ class GdcModel:
         # Programmer-visible parameters are unspecified at power-up and retained
         # by the base RESET command unless optional RESET parameters replace them.
         self.parameter_ram = bytearray(16)
-        self.parameter_ram_known = False
+        self.parameter_ram_known_mask = 0
         self.sync = SyncRegisters()
         self.sync_parameter_bytes = bytearray(8)
         self.sync_parameter_known_mask = 0
@@ -586,6 +586,12 @@ class GdcModel:
                 self.ead = (current & 0x0FFFF) | ((entry.value & 0x03) << 16)
                 self.dad_dot = entry.value >> 4
                 self.mask = 1 << self.dad_dot
+        elif kind is CommandKind.PRAM:
+            address = (opcode & 0x0F) + index
+            if not 0 <= address < 16:
+                raise ModelError("PRAM parameter address exceeded RA15")
+            self.parameter_ram[address] = entry.value
+            self.parameter_ram_known_mask |= 1 << address
         if self.active_repeats_parameter_group:
             self.next_parameter_index = (index + 1) % self.active_parameter_limit
             return ParserEvent(parameter=parameter)
@@ -753,7 +759,13 @@ class GdcModel:
             "sync_master": self.sync_master,
             "figure": asdict(self.figure),
             "cursor_characteristics": asdict(self.cursor_characteristics),
-            "parameter_ram": self.parameter_ram.hex() if self.parameter_ram_known else None,
+            "parameter_ram": [
+                self.parameter_ram[index]
+                if self.parameter_ram_known_mask & (1 << index)
+                else None
+                for index in range(16)
+            ],
+            "parameter_ram_known_mask": self.parameter_ram_known_mask,
             "memory_sha256": self.memory_sha256(),
         }
 

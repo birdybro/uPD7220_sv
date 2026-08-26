@@ -171,6 +171,20 @@ CURD P3 bits 7:2 are undefined on the device. The synthesizable implementation
 uses zero for deterministic FPGA behavior, but no compatibility claim depends
 on those bits.
 
+## Parameter RAM
+
+`upd7220_pram` owns the 16 raw bytes RA0 through RA15 and a verification-only
+programmed-byte mask. PRAM's opcode start address and registered parser index
+form a five-bit checked address; each parameter changes only the selected byte.
+The command parser prevents an address beyond RA15 and permits a new command to
+stop any partial load.
+
+Integration reset establishes deterministic zeros for FPGA use. The functional
+RESET command blocks a coincident write but retains all Parameter RAM bytes, as
+required for programmer-loaded parameters. Partition fields, graphics drawing
+patterns, and graphics-character scan order consume this storage in later
+modules; the raw store does not prematurely impose any of those interpretations.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:

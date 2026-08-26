@@ -26,12 +26,7 @@ CORE_SOURCES = [
 
 
 def run_cocotb(
-    *,
-    top: str,
-    sources: list[Path],
-    module: str,
-    build_directory: Path,
-    seed: int,
+    *, top: str, sources: list[Path], module: str, build_directory: Path, seed: int
 ) -> None:
     runner = get_runner(os.environ.get("SIM", "verilator"))
     runner.build(
@@ -56,25 +51,25 @@ def run_cocotb(
 
 
 @pytest.mark.rtl
-def test_cursor_register_and_readback(gdc_seed: SeedContext) -> None:
+def test_parameter_ram_register(gdc_seed: SeedContext) -> None:
     run_cocotb(
-        top="upd7220_cursor",
+        top="upd7220_pram",
         sources=[
             ROOT / "rtl" / "upd7220_pkg.sv",
-            ROOT / "rtl" / "upd7220_cursor.sv",
+            ROOT / "rtl" / "upd7220_pram.sv",
         ],
-        module="tests.cocotb.test_cursor",
-        build_directory=ROOT / "build" / "sim" / f"cursor-seed-{gdc_seed.seed}",
+        module="tests.cocotb.test_pram",
+        build_directory=ROOT / "build" / "sim" / f"pram-seed-{gdc_seed.seed}",
         seed=gdc_seed.seed,
     )
 
 
 @pytest.mark.rtl
-def test_cursor_through_host_fifo(gdc_seed: SeedContext) -> None:
+def test_parameter_ram_through_host_fifo(gdc_seed: SeedContext) -> None:
     run_cocotb(
         top="upd7220_core",
         sources=CORE_SOURCES,
-        module="tests.cocotb.test_cursor_core",
-        build_directory=ROOT / "build" / "sim" / f"cursor-core-seed-{gdc_seed.seed}",
+        module="tests.cocotb.test_pram_core",
+        build_directory=ROOT / "build" / "sim" / f"pram-core-seed-{gdc_seed.seed}",
         seed=gdc_seed.seed,
     )

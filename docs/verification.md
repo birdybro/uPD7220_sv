@@ -58,6 +58,13 @@ new-command abortion of unread response bytes. The integrated test drives only
 the asynchronous host pins and checks the documented byte order via status
 polling and FIFO reads.
 
+Parameter RAM tests load all 16 locations both sequentially from SA=0 and as P1
+from every SA value, verify the packed byte ordering, interrupt a partial stream,
+check unrelated-parameter isolation, retain data across functional RESET, and
+exercise the complete asynchronous host/FIFO/parser/register route. Per-byte RTL
+assertions prove that a write loads its selected byte and leaves every other byte
+stable.
+
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent
 of the physical GDC wrapper.

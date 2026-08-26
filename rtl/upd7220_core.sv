@@ -65,7 +65,7 @@ module upd7220_core #(
     logic [7:0] parameter_data;
     logic [3:0] parameter_index;
     upd7220_pkg::command_kind_t parameter_kind;
-    logic [7:0] unused_parameter_opcode;
+    logic [7:0] parameter_opcode;
     logic       unused_command_complete;
     logic [7:0] unused_completed_opcode;
     logic       unused_command_interrupted;
@@ -113,6 +113,8 @@ module upd7220_core #(
     logic [17:0] unused_ead;
     logic [3:0] unused_dot_address;
     logic [15:0] unused_mask;
+    logic [127:0] unused_parameter_ram;
+    logic [15:0] unused_pram_programmed_mask;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -123,7 +125,7 @@ module upd7220_core #(
         unused_fifo_occupancy,
         unused_command_known,
         unused_started_parameter_limit,
-        unused_parameter_opcode,
+        parameter_opcode[7:4],
         unused_command_complete,
         unused_completed_opcode,
         unused_command_interrupted,
@@ -158,7 +160,9 @@ module upd7220_core #(
         unused_pitch,
         unused_ead,
         unused_dot_address,
-        unused_mask
+        unused_mask,
+        unused_parameter_ram,
+        unused_pram_programmed_mask
     };
 
     assign status_value = device_initialized_q
@@ -226,7 +230,7 @@ module upd7220_core #(
         .parameter_data,
         .parameter_index,
         .parameter_kind,
-        .parameter_opcode          (unused_parameter_opcode),
+        .parameter_opcode,
         .command_complete          (unused_command_complete),
         .completed_opcode          (unused_completed_opcode),
         .command_interrupted       (unused_command_interrupted),
@@ -305,6 +309,19 @@ module upd7220_core #(
         .ead                         (unused_ead),
         .dot_address                 (unused_dot_address),
         .mask                        (unused_mask)
+    );
+
+    upd7220_pram parameter_ram_registers (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .parameter_valid,
+        .parameter_kind,
+        .start_address                 (parameter_opcode[3:0]),
+        .parameter_index,
+        .parameter_data,
+        .parameter_ram               (unused_parameter_ram),
+        .programmed_mask             (unused_pram_programmed_mask)
     );
 
     upd7220_video_timing video_timing (

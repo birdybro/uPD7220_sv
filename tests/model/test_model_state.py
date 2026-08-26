@@ -29,7 +29,7 @@ def test_reset_initializes_control_but_retains_parameters() -> None:
     model.mask = 0xA55A
     model.pitch = 80
     model.parameter_ram[:] = bytes(range(16))
-    model.parameter_ram_known = True
+    model.parameter_ram_known_mask = 0xFFFF
     model.drawing_active = True
     model.dma_active = True
     model.light_pen_detected = True
