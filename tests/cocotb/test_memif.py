@@ -7,6 +7,7 @@ from cocotb.triggers import FallingEdge, ReadOnly, RisingEdge, Timer
 
 DISPLAY = 0
 RMW = 1
+REFRESH = 2
 IDLE = 0
 C1 = 1
 C2 = 2
@@ -92,6 +93,36 @@ async def display_cycle_has_exact_two_clock_address_and_turnaround_trace(
     await finish_edge()
     await rising(dut)
     assert int(dut.response_valid.value) == 0
+
+
+@cocotb.test()
+async def refresh_cycle_is_two_clocks_and_never_reads_memory(dut: object) -> None:
+    await start_and_reset(dut)
+    dut.request_kind.value = REFRESH
+    dut.request_address.value = 0x000A5
+    dut.mem_ad_i.value = 0xBEEF
+    dut.request_valid.value = 1
+    await rising(dut)
+    assert pins(dut) == (C1, 1, 0, 1, 1, 1, 0x00A5, 0, 0)
+    await finish_edge()
+    dut.request_valid.value = 0
+
+    await falling(dut)
+    assert pins(dut) == (C1, 1, 0, 0, 1, 1, 0x00A5, 0, 0)
+    await finish_edge()
+    await rising(dut)
+    assert pins(dut)[0:6] == (C2, 1, 1, 0, 1, 0)
+    await finish_edge()
+    dut.mem_ad_i.value = 0x1234
+    await falling(dut)
+    assert pins(dut)[0:6] == (C2, 1, 1, 0, 1, 0)
+    await finish_edge()
+    await rising(dut)
+    assert pins(dut)[0:6] == (IDLE, 0, 1, 1, 1, 0)
+    assert int(dut.response_valid.value) == 1
+    assert int(dut.response_kind.value) == REFRESH
+    assert int(dut.response_address.value) == 0x000A5
+    assert int(dut.response_read_data.value) == 0
 
 
 @cocotb.test()

@@ -211,17 +211,17 @@ in character mode it selects the documented every-other-read DAD operation.
 The application manual also documents this repeated-address operation in
 graphics mode, while requiring IM=0 for normal graphics display.
 
-The partition block currently produces the address stream consumed by the
-future display-memory-cycle scheduler. It does not yet drive AD/A16/A17, issue
-ALE/DBIN, fetch display data, or generate mode-dependent character pins; those
-are separate bus and character-timing milestones.
+The partition block produces the address stream consumed by the integrated
+graphics display-memory scheduler. Character and mixed-mode A16/A17 pin
+multiplexing remain separate character-timing milestones.
 
 ## Display-memory cycle primitive
 
 `upd7220_memif` owns the split physical AD, A16/A17, ALE, and DBIN signals. Its
-request boundary accepts either a two-clock display/read cycle or a four-clock
-RMW cycle. The address is latched when a request starts and driven on AD for all
-of C1, while A16/A17 retain its upper bits through the complete primitive.
+request boundary accepts a two-clock display/read cycle, a two-clock refresh
+cycle, or a four-clock RMW cycle. The address is latched when a request starts
+and driven on AD for all of C1, while A16/A17 retain its upper bits through the
+complete primitive.
 
 ALE uses a rising-edge cycle epoch and a falling-edge acknowledgement. This
 produces the documented high first half of C1 and low remainder without a
@@ -229,6 +229,7 @@ dual-edge procedural block, an internal generated clock, or a synthesizable
 delay. AD releases at the C1-to-C2 rising edge. A display access samples the
 external value at the falling edge ending C2 for verification/convenience use;
 original external video hardware independently loads its shift register there.
+A refresh cycle releases AD for C2 without sampling it and keeps DBIN inactive.
 
 For RMW, DBIN falls at the midpoint of C2, stays low through the first half of
 C3, and rises at C3's midpoint when AD input is sampled. Upstream logic sees
@@ -237,13 +238,13 @@ primitive latches it at the C4 rising edge, drives it for all of C4, then
 releases AD. This boundary will allow MASK/WDAT/drawing logic to remain
 separate from physical bus timing.
 
-The final clock of either primitive may accept the next request, so consecutive
+The final clock of any primitive may accept the next request, so consecutive
 cycles have no idle bubble. Integration and functional reset immediately force
 ALE/DBIN inactive-high and release AD, including a reset during DBIN or C4.
 Assertions prevent AD drive during DBIN and require read-before-write ordering.
 
-The primitive is connected to the public core pins and accepts unzoomed graphics
-raster requests as described below. Refresh ownership, RMW arbitration, zoom
+The primitive is connected to the public core pins and accepts refresh and
+unzoomed graphics raster requests as described below. RMW arbitration, zoom
 extension, and character/mixed A16/A17 multiplexing are not claimed yet.
 
 ## Graphics raster fetch scheduling
@@ -272,6 +273,22 @@ Only graphics mode currently reaches this raw 18-bit path. Character mode must
 multiplex line-count/cursor information onto AD13-15 and A16/A17, while mixed
 mode uses A16/A17 for image/cursor/attribute control. Fetches for those modes
 remain gated until those responsibilities are implemented and cycle-tested.
+
+## Dynamic-RAM refresh scheduling
+
+`upd7220_refresh` owns the documented eight-bit refresh counter. When RESET or
+SYNC parameter P1 bit D enables refresh, `refresh_enable && hsync` requests a
+cycle regardless of idle, START, or BCTRL state. Every accepted two-clock slot
+drives the current counter on AD0-AD7 and then increments modulo 256. The
+request mux gives refresh absolute priority, matching the manuals' statement
+that no other display-memory work may interrupt or delay an enabled HSYNC
+refresh cycle.
+
+The primary text specifies only the lower eight AD pins for the row address.
+The implementation drives AD15-AD8 and A16/A17 low during refresh so FPGA
+integration is deterministic. Those upper values and the numerical RESET
+counter origin are explicitly excluded from original-silicon claims in the
+open-questions record.
 
 ## Compatibility profiles
 

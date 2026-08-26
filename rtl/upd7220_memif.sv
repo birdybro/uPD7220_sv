@@ -55,7 +55,7 @@ module upd7220_memif (
     assign cycle_kind = kind_q;
     assign cycle_phase = phase_q;
     assign final_phase =
-        ((kind_q == upd7220_pkg::MEM_CYCLE_DISPLAY)
+        ((kind_q != upd7220_pkg::MEM_CYCLE_RMW)
          && (phase_q == upd7220_pkg::MEM_PHASE_C2))
         || ((kind_q == upd7220_pkg::MEM_CYCLE_RMW)
             && (phase_q == upd7220_pkg::MEM_PHASE_C4));
@@ -126,7 +126,9 @@ module upd7220_memif (
                         response_valid_q     <= 1'b1;
                         response_kind_q      <= kind_q;
                         response_address_q   <= address_q;
-                        response_read_data_q <= read_data_q;
+                        response_read_data_q <=
+                            (kind_q == upd7220_pkg::MEM_CYCLE_DISPLAY)
+                            ? read_data_q : 16'h0000;
                         if (accept_request) begin
                             kind_q      <= request_kind;
                             address_q   <= request_address;
@@ -198,7 +200,8 @@ module upd7220_memif (
         @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)
             accept_request |->
                 (request_kind inside {upd7220_pkg::MEM_CYCLE_DISPLAY,
-                                      upd7220_pkg::MEM_CYCLE_RMW});
+                                      upd7220_pkg::MEM_CYCLE_RMW,
+                                      upd7220_pkg::MEM_CYCLE_REFRESH});
     endproperty
     property p_ad_direction;
         @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)

@@ -60,9 +60,10 @@ package upd7220_pkg;
         VPHASE_ACTIVE      = 2'd3
     } vertical_phase_t;
 
-    typedef enum logic {
-        MEM_CYCLE_DISPLAY = 1'b0,
-        MEM_CYCLE_RMW     = 1'b1
+    typedef enum logic [1:0] {
+        MEM_CYCLE_DISPLAY = 2'd0,
+        MEM_CYCLE_RMW     = 2'd1,
+        MEM_CYCLE_REFRESH = 2'd2
     } memory_cycle_kind_t;
 
     typedef enum logic [2:0] {

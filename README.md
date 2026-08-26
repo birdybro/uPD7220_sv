@@ -17,10 +17,12 @@ boundaries, and implements image/wide access stepping. Display-memory bus
 primitive cycles now reproduce the two-clock display access and four-clock RMW
 address, ALE, DBIN, turnaround, sampling, and writeback phases. Raster fetch
 scheduling is connected for unzoomed graphics mode, including pitch, partition,
-image-repeat, blanking, idle, and 18-bit address behavior. Character/mixed
-physical fetch pins, refresh/arbitration, zoom, and fetched pixel use remain
-later milestones. Accuracy claims are limited to primary-source requirements
-with executable tests.
+image-repeat, blanking, idle, and 18-bit address behavior. Enabled dynamic-RAM
+refresh now occupies every HSYNC word with a two-clock address-only cycle and
+successive eight-bit row addresses, independently of START or screen blanking.
+Character/mixed physical fetch pins, full drawing/DMA arbitration, zoom, and
+fetched pixel use remain later milestones. Accuracy claims are limited to
+primary-source requirements with executable tests.
 
 ## Reference corpus
 

@@ -88,7 +88,7 @@ module upd7220_core #(
     logic [7:0] unused_sync_p8;
     upd7220_pkg::display_mode_t sync_display_mode;
     upd7220_pkg::framing_mode_t unused_framing_mode;
-    logic       unused_refresh_enable;
+    logic       sync_refresh_enable;
     logic       unused_drawing_during_retrace_only;
     logic [8:0] sync_active_words;
     logic [5:0] sync_hsync_width;
@@ -137,6 +137,13 @@ module upd7220_core #(
     logic [15:0] unused_rmw_read_data;
     logic       mem_display_request_valid;
     logic       mem_display_accept;
+    logic       mem_refresh_request_valid;
+    logic       mem_refresh_accept;
+    logic [17:0] mem_refresh_address;
+    logic [7:0] refresh_counter;
+    logic       mem_request_valid;
+    upd7220_pkg::memory_cycle_kind_t mem_request_kind;
+    logic [17:0] mem_request_address;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -167,7 +174,6 @@ module upd7220_core #(
         unused_sync_p7,
         unused_sync_p8,
         unused_framing_mode,
-        unused_refresh_enable,
         unused_drawing_during_retrace_only,
         unused_horizontal_blank,
         unused_horizontal_phase,
@@ -195,7 +201,9 @@ module upd7220_core #(
         mem_response_valid,
         mem_response_address,
         mem_response_read_data,
-        mem_cycle_active
+        mem_cycle_active,
+        mem_refresh_accept,
+        refresh_counter
     };
 
     // START begins raster display-memory scanning. BCTRL/SYNC DE controls
@@ -207,7 +215,20 @@ module upd7220_core #(
         && raster_partition_active
         && timing_active_word
         && (sync_display_mode == upd7220_pkg::DISPLAY_GRAPHICS);
-    assign mem_display_accept = mem_display_request_valid && mem_request_ready;
+    assign mem_display_accept = mem_display_request_valid
+        && !mem_refresh_request_valid && mem_request_ready;
+
+    // Every enabled HSYNC word is a refresh slot. This request has absolute
+    // priority over all other memory work, as specified by the design and
+    // application manuals. Raster active words cannot overlap HSYNC, but the
+    // explicit mux preserves that priority as later requesters are added.
+    assign mem_request_valid = mem_refresh_request_valid
+        || mem_display_request_valid;
+    assign mem_request_kind = mem_refresh_request_valid
+        ? upd7220_pkg::MEM_CYCLE_REFRESH
+        : upd7220_pkg::MEM_CYCLE_DISPLAY;
+    assign mem_request_address = mem_refresh_request_valid
+        ? mem_refresh_address : raster_dad;
 
     assign status_value = device_initialized_q
         ? {5'b0, fifo_empty, fifo_full, fifo_data_ready}
@@ -312,7 +333,7 @@ module upd7220_core #(
         .sync_p8                   (unused_sync_p8),
         .display_mode              (sync_display_mode),
         .framing_mode              (unused_framing_mode),
-        .refresh_enable            (unused_refresh_enable),
+        .refresh_enable            (sync_refresh_enable),
         .drawing_during_retrace_only (unused_drawing_during_retrace_only),
         .active_words              (sync_active_words),
         .hsync_width               (sync_hsync_width),
@@ -393,17 +414,30 @@ module upd7220_core #(
         .wide_access                  (unused_wide_access)
     );
 
-    // Graphics raster fetches own the primitive in this milestone. Refresh,
-    // drawing, DMA, and mode-specific display schedulers join through explicit
+    upd7220_refresh refresh_sequencer (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .refresh_enable              (sync_refresh_enable),
+        .hsync,
+        .request_ready               (mem_request_ready),
+        .request_valid               (mem_refresh_request_valid),
+        .request_accept              (mem_refresh_accept),
+        .request_address             (mem_refresh_address),
+        .refresh_counter
+    );
+
+    // Refresh and graphics raster fetches currently feed the primitive.
+    // Drawing, DMA, and mode-specific display schedulers join through explicit
     // arbitration in their dedicated milestones.
     upd7220_memif memory_interface (
         .clk_2x,
         .integration_reset_n,
         .reset_command,
-        .request_valid                (mem_display_request_valid),
+        .request_valid                (mem_request_valid),
         .request_ready                (mem_request_ready),
-        .request_kind                 (upd7220_pkg::MEM_CYCLE_DISPLAY),
-        .request_address              (raster_dad),
+        .request_kind                 (mem_request_kind),
+        .request_address              (mem_request_address),
         .rmw_write_data               (16'h0000),
         .response_valid               (mem_response_valid),
         .response_kind                (unused_mem_response_kind),

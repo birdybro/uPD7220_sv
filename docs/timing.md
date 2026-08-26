@@ -224,9 +224,8 @@ the rising edge following each active-line boundary:
 The line count is latched with its descriptor, so rewriting the current LEN
 cannot shorten or extend the area in progress. The independent core test checks
 these events against the falling-edge raster generator and its following rising
-partition edge. Physical ALE/DBIN transactions remain pending and are not
-implied by this architectural DAD schedule; the implemented primitive below is
-not connected to the partition request stream until the display-fetch milestone.
+partition edge. Accepted graphics requests now connect this architectural DAD
+schedule to the physical primitive described below.
 
 ## Base display-memory primitive edge table
 
@@ -234,17 +233,17 @@ Every numbered clock begins on a rising 2xWCLK edge. Address and write drive
 continue across the following falling edge and end at the next rising edge.
 The pin state immediately after each controlling digital edge is:
 
-| Edge | Display cycle | RMW cycle |
-|---|---|---|
-| rising C1 | ALE=1; drive address on AD and A16/A17 | same |
-| falling C1 | ALE=0; continue driving address | same |
-| rising C2 | release AD; ALE remains 0 | same |
-| falling C2 | external video register may sample data; DBIN remains 1 | DBIN=0; memory drives read data |
-| rising C3 | cycle complete; ALE=1, or next C1 begins | DBIN remains 0; memory continues driving |
-| falling C3 | — | sample AD read data; DBIN=1 |
-| rising C4 | — | drive the latched modified word; ALE remains 0 |
-| falling C4 | — | continue driving the stable modified word |
-| rising C5 | — | cycle complete; release AD and raise ALE, or begin next C1 |
+| Edge | Display cycle | Refresh cycle | RMW cycle |
+|---|---|---|---|
+| rising C1 | ALE=1; drive address on AD and A16/A17 | ALE=1; drive refresh row on AD0-AD7 | same as display address |
+| falling C1 | ALE=0; continue driving address | ALE=0; continue driving row address | same |
+| rising C2 | release AD; ALE remains 0 | release AD; ALE remains 0 | release AD; ALE remains 0 |
+| falling C2 | external video register may sample data; DBIN remains 1 | no data sample; DBIN remains 1 | DBIN=0; memory drives read data |
+| rising C3 | cycle complete; ALE=1, or next C1 begins | cycle complete; ALE=1, or next refresh C1 begins | DBIN remains 0; memory continues driving |
+| falling C3 | — | — | sample AD read data; DBIN=1 |
+| rising C4 | — | — | drive the latched modified word; ALE remains 0 |
+| falling C4 | — | — | continue driving the stable modified word |
+| rising C5 | — | — | cycle complete; release AD and raise ALE, or begin next C1 |
 
 The display sample in the RTL is an integration convenience and does not imply
 that original silicon consumed raster data internally. In an original system,
@@ -272,6 +271,31 @@ changes BLANK but does not alter this cadence after START; RESET/idle prevents
 requests entirely. The current integrated cadence is constrained to unzoomed
 graphics mode until mode-pin multiplexing and zoom-lengthening milestones.
 
+## Dynamic-RAM refresh cadence
+
+The Intel application manual sections 2.5.1 and 2.6.2 state that enabled memory
+cycles during HSYNC output successive values from an internal eight-bit counter
+on AD0-AD7. Section 6.1.1 makes the scheduling exact: every display-cycle
+address within HSYNC comes from that counter, and refresh has the highest memory
+arbitration priority so it cannot be interrupted or delayed. The preliminary
+data sheet identifies refresh as a two-clock cycle. Therefore a programmed HS
+width of `N` word times produces exactly `N` consecutive refresh primitives:
+
+| Raster/bus event | Digitally observed action |
+|---|---|
+| falling edge enters HSYNC | HSYNC rises; no new address is implied until the following rising edge |
+| following rising edge | accept refresh C1, drive current counter on AD0-AD7, increment counter |
+| following falling edge | ALE falls while the same row address remains driven |
+| next rising/falling pair | release AD for C2; ALE remains low and DBIN remains inactive |
+| next rising edge while HSYNC remains high | complete prior cycle and begin the next refresh C1 without an idle bubble |
+| first completion after HSYNC falls | complete the final refresh and return idle unless another owner is eligible |
+
+Refresh enable is independent of START and BCTRL, so this cadence continues in
+idle and while BLANK is asserted. With D=0 the otherwise unused HSYNC slots are
+available to later drawing/DMA arbitration. Only AD0-AD7 are specified by the
+manuals; deterministic upper output values and reset origin are recorded as
+inferences in `docs/open_questions.md`.
+
 ## Display-memory electrical timing (base 82720)
 
 The following page-27 propagation/setup values are recorded separately from the
@@ -298,7 +322,7 @@ propagation columns will become assertions/checks, not synthesizable delays.
 
 The following source diagrams still require machine-readable edge tables as
 their implementation milestones arrive: zoom-extended memory cycles,
-display-fetch and refresh ownership, DRQ/DACK sequencing, drawing execution
+full display/drawing/DMA arbitration, DRQ/DACK sequencing, drawing execution
 latency, interlaced vertical raster edges, slave synchronization, light-pen
 sampling/deglitching, interlace half-lines, and active-display memory
 arbitration. Until those tables and tests exist, the project does not claim

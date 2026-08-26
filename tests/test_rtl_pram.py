@@ -20,6 +20,7 @@ CORE_SOURCES = [
     ROOT / "rtl" / "upd7220_cursor.sv",
     ROOT / "rtl" / "upd7220_pram.sv",
     ROOT / "rtl" / "upd7220_partitions.sv",
+    ROOT / "rtl" / "upd7220_refresh.sv",
     ROOT / "rtl" / "upd7220_memif.sv",
     ROOT / "rtl" / "upd7220_video_timing.sv",
     ROOT / "rtl" / "upd7220_vertical_timing.sv",

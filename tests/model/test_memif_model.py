@@ -67,6 +67,25 @@ def test_rmw_cycle_half_edge_table_and_no_contention() -> None:
     )
 
 
+def test_refresh_cycle_is_two_clocks_without_memory_read() -> None:
+    trace = memory_bus_cycle_trace(
+        MemoryBusCycleKind.REFRESH, 0x000A5, read_data=0xBEEF
+    )
+    assert tuple(map(compact, trace)) == (
+        (MemoryBusEdge.RISING, 1, True, True,
+         MemoryBusDirection.GDC_ADDRESS, 0x00A5, False, False),
+        (MemoryBusEdge.FALLING, 1, False, True,
+         MemoryBusDirection.GDC_ADDRESS, 0x00A5, False, False),
+        (MemoryBusEdge.RISING, 2, False, True,
+         MemoryBusDirection.HIGH_Z, None, False, False),
+        (MemoryBusEdge.FALLING, 2, False, True,
+         MemoryBusDirection.HIGH_Z, None, False, False),
+        (MemoryBusEdge.RISING, 3, True, True,
+         MemoryBusDirection.HIGH_Z, None, False, True),
+    )
+    assert {(sample.a16, sample.a17) for sample in trace} == {(0, 0)}
+
+
 @pytest.mark.parametrize(
     ("address", "read_data", "write_data"),
     ((-1, 0, 0), (1 << 18, 0, 0), (0, -1, 0), (0, 0, 1 << 16)),

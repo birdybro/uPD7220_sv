@@ -80,10 +80,11 @@ They verify address drive throughout C1, ALE's midpoint fall and completion
 rise, AD release, display-data sampling at the end of C2, the DBIN-low window
 from mid-C2 to mid-C3, RMW read sampling, C4 write stability, A16/A17, a
 back-to-back cycle with no idle bubble, and reset during an asserted DBIN. A
-separate Python timing table produces five display half-edge samples and nine
-RMW samples without reusing the RTL state-machine structure. Assertions prove
-that DBIN and GDC AD drive never overlap and that an RMW write cannot precede
-the read phase.
+separate Python timing table produces five display/refresh half-edge samples
+and nine RMW samples without reusing the RTL state-machine structure. The
+refresh trace proves that C2 neither samples AD nor asserts DBIN. Assertions
+prove that DBIN and GDC AD drive never overlap and that an RMW write cannot
+precede the read phase.
 
 The integrated graphics-fetch test programs SYNC, PITCH, two PRAM areas, RESET,
 and START solely through asynchronous host pins. Its recorded physical address
@@ -94,6 +95,13 @@ word for every address and the test checks the primitive's end-C2 samples.
 A second trace proves that idle emits no memory cycle, BCTRL DE=0 leaves the
 running scan cadence intact while BLANK is high, and BCTRL DE=1 restores
 unblanked fetches.
+
+Refresh tests independently exercise the eight-bit scheduler with backpressure,
+enable/HSYNC gating, RESET, all 256 counter values, and wrap. The integrated
+host-programmed raster uses HS=3 and proves the physical sequence `00,01,02`
+on one HSYNC followed by `03,04,05` on the next. It checks exact two-clock
+spacing, the full-line gap, BLANK, inactive DBIN, zero-extended FPGA output,
+operation while still idle, and an entirely unclaimed HSYNC bus when D=0.
 
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent

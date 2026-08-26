@@ -66,3 +66,18 @@ that represents the documented maximum and avoids a zero-length area that could
 never become active, but it remains an **engineering inference**. Fixed RTL and
 model tests preserve this interpretation so a future manufacturer clarification
 or physical-device trace can change it deliberately rather than silently.
+
+## OQ-006 — refresh upper outputs and RESET origin
+
+The NEC design manual section 2.5.1 and Intel application manual section 2.5.1
+specify that the internal eight-bit refresh counter appears on the lower eight
+AD lines during HSYNC. Neither assigns refresh meaning to AD15-AD8 or A16/A17.
+RESET is documented to initialize internal counters, but the currently
+available text does not state the refresh counter's numerical post-RESET value.
+
+For deterministic FPGA behavior, the RTL drives all unspecified upper address
+outputs low during refresh and initializes the refresh counter to `00h`. The
+model and fixed tests preserve that convention, while conformance claims cover
+only the successive modulo-256 AD0-AD7 sequence after the selected origin. A
+manufacturer clarification or physical trace may refine these values without
+changing the evidence-backed cycle cadence.

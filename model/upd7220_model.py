@@ -81,6 +81,7 @@ class DisplayMode(IntEnum):
 class MemoryBusCycleKind(str, Enum):
     DISPLAY = "display"
     RMW = "rmw"
+    REFRESH = "refresh"
 
 
 class MemoryBusEdge(str, Enum):
@@ -282,7 +283,7 @@ def memory_bus_cycle_trace(
     if not 0 <= write_data <= WORD_MASK:
         raise ValueError("display-memory write data exceeds 16 bits")
 
-    last_cycle = 2 if selected_kind is MemoryBusCycleKind.DISPLAY else 4
+    last_cycle = 4 if selected_kind is MemoryBusCycleKind.RMW else 2
     samples: list[MemoryBusTraceSample] = []
     for clock_cycle in range(1, last_cycle + 1):
         for edge in (MemoryBusEdge.RISING, MemoryBusEdge.FALLING):
@@ -432,6 +433,7 @@ class GdcModel:
         self.display_partition_wide = False
         self.display_repeat = False
         self.display_address_mode: DisplayMode | None = None
+        self.refresh_counter = 0
 
     @staticmethod
     def _word(value: int) -> int:
@@ -495,6 +497,7 @@ class GdcModel:
         self.display_partition_wide = False
         self.display_repeat = False
         self.display_address_mode = None
+        self.refresh_counter = 0
 
         # RESET initializes internal timing counters, but the primary data sheet
         # explicitly says it does not modify already loaded parameters.
@@ -949,6 +952,19 @@ class GdcModel:
         self.advance_display_slot()
         return address
 
+    @property
+    def refresh_request(self) -> bool:
+        """Whether the current raster slot must issue a refresh cycle."""
+        return bool(self.sync.dynamic_refresh and self.horizontal_sync)
+
+    def accept_refresh_cycle(self) -> int:
+        """Return AD0-AD7 for one accepted HSYNC refresh and advance it."""
+        if not self.refresh_request:
+            raise ModelError("refresh cycle requires enabled horizontal sync")
+        address = self.refresh_counter
+        self.refresh_counter = (self.refresh_counter + 1) & BYTE_MASK
+        return address
+
     def end_active_display(self) -> None:
         self.display_partition_active = False
         self.display_repeat = False
@@ -1058,6 +1074,7 @@ class GdcModel:
             "pitch": self.pitch,
             "display_zoom": self.display_zoom,
             "graphics_character_zoom": self.graphics_character_zoom,
+            "refresh_counter": self.refresh_counter,
             "sync": asdict(self.sync),
             "sync_parameter_bytes": [
                 self.sync_parameter_bytes[index]

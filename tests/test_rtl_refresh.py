@@ -28,28 +28,57 @@ CORE_SOURCES = [
 ]
 
 
-@pytest.mark.rtl
-def test_graphics_display_fetch_integration(gdc_seed: SeedContext) -> None:
-    build_directory = (
-        ROOT / "build" / "sim" / f"display-fetch-seed-{gdc_seed.seed}"
-    )
+def run_cocotb(
+    *,
+    sources: list[Path],
+    top: str,
+    module: str,
+    build_directory: Path,
+    seed: int,
+) -> None:
     runner = get_runner(os.environ.get("SIM", "verilator"))
     runner.build(
-        sources=CORE_SOURCES,
-        hdl_toplevel="upd7220_core",
+        sources=sources,
+        hdl_toplevel=top,
         build_dir=build_directory,
         always=True,
         waves=True,
     )
     try:
         runner.test(
-            hdl_toplevel="upd7220_core",
-            test_module="tests.cocotb.test_display_fetch",
+            hdl_toplevel=top,
+            test_module=module,
             build_dir=build_directory,
             waves=True,
-            extra_env={"GDC_SEED": str(gdc_seed.seed)},
+            extra_env={"GDC_SEED": str(seed)},
         )
     except BaseException:
-        print(f"seed={gdc_seed.seed}")
+        print(f"seed={seed}")
         print(f"waveform/build artifacts: {build_directory}")
         raise
+
+
+@pytest.mark.rtl
+def test_refresh_counter_unit(gdc_seed: SeedContext) -> None:
+    run_cocotb(
+        sources=[ROOT / "rtl" / "upd7220_refresh.sv"],
+        top="upd7220_refresh",
+        module="tests.cocotb.test_refresh_unit",
+        build_directory=(
+            ROOT / "build" / "sim" / f"refresh-unit-seed-{gdc_seed.seed}"
+        ),
+        seed=gdc_seed.seed,
+    )
+
+
+@pytest.mark.rtl
+def test_refresh_raster_integration(gdc_seed: SeedContext) -> None:
+    run_cocotb(
+        sources=CORE_SOURCES,
+        top="upd7220_core",
+        module="tests.cocotb.test_refresh",
+        build_directory=(
+            ROOT / "build" / "sim" / f"refresh-core-seed-{gdc_seed.seed}"
+        ),
+        seed=gdc_seed.seed,
+    )
