@@ -115,26 +115,28 @@ module upd7220_core #(
     logic [15:0] unused_mask;
     logic [127:0] display_parameter_ram;
     logic [15:0] unused_pram_programmed_mask;
-    logic       unused_partition_active;
+    logic       raster_partition_active;
     logic [1:0] unused_partition_index;
     logic [10:0] unused_partition_line_index;
     logic [10:0] unused_partition_line_count;
     logic [5:0] unused_character_scanline;
     logic [17:0] unused_partition_start_address;
-    logic [17:0] unused_dad;
+    logic [17:0] raster_dad;
     logic       unused_image_area;
     logic       unused_graphics_area;
     logic       unused_wide_access;
-    logic       unused_mem_request_ready;
-    logic       unused_mem_response_valid;
+    logic       mem_request_ready;
+    logic       mem_response_valid;
     upd7220_pkg::memory_cycle_kind_t unused_mem_response_kind;
-    logic [17:0] unused_mem_response_address;
-    logic [15:0] unused_mem_response_read_data;
-    logic       unused_mem_cycle_active;
+    logic [17:0] mem_response_address;
+    logic [15:0] mem_response_read_data;
+    logic       mem_cycle_active;
     upd7220_pkg::memory_cycle_kind_t unused_mem_cycle_kind;
     upd7220_pkg::memory_cycle_phase_t unused_mem_cycle_phase;
     logic       unused_rmw_read_data_valid;
     logic [15:0] unused_rmw_read_data;
+    logic       mem_display_request_valid;
+    logic       mem_display_accept;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -177,27 +179,35 @@ module upd7220_core #(
         unused_dot_address,
         unused_mask,
         unused_pram_programmed_mask,
-        unused_partition_active,
         unused_partition_index,
         unused_partition_line_index,
         unused_partition_line_count,
         unused_character_scanline,
         unused_partition_start_address,
-        unused_dad,
         unused_image_area,
         unused_graphics_area,
         unused_wide_access,
-        unused_mem_request_ready,
-        unused_mem_response_valid,
         unused_mem_response_kind,
-        unused_mem_response_address,
-        unused_mem_response_read_data,
-        unused_mem_cycle_active,
         unused_mem_cycle_kind,
         unused_mem_cycle_phase,
         unused_rmw_read_data_valid,
-        unused_rmw_read_data
+        unused_rmw_read_data,
+        mem_response_valid,
+        mem_response_address,
+        mem_response_read_data,
+        mem_cycle_active
     };
+
+    // START begins raster display-memory scanning. BCTRL/SYNC DE controls
+    // video blanking but does not return the device to idle, so fetches keep
+    // their cadence while blanked. Character/mixed pin multiplexing is added
+    // with those mode milestones; only graphics requests reach the raw 18-bit
+    // primitive until then.
+    assign mem_display_request_valid = !idle_q
+        && raster_partition_active
+        && timing_active_word
+        && (sync_display_mode == upd7220_pkg::DISPLAY_GRAPHICS);
+    assign mem_display_accept = mem_display_request_valid && mem_request_ready;
 
     assign status_value = device_initialized_q
         ? {5'b0, fifo_empty, fifo_full, fifo_data_ready}
@@ -370,38 +380,36 @@ module upd7220_core #(
         .parameter_ram                (display_parameter_ram),
         .active_line                  (timing_active_line),
         .line_start                   (timing_line_start),
-        .display_advance              (
-            timing_active_line && timing_active_word && word_time_ce
-        ),
-        .partition_active             (unused_partition_active),
+        .display_advance              (mem_display_accept),
+        .partition_active             (raster_partition_active),
         .partition_index              (unused_partition_index),
         .partition_line_index         (unused_partition_line_index),
         .partition_line_count         (unused_partition_line_count),
         .character_scanline           (unused_character_scanline),
         .partition_start_address      (unused_partition_start_address),
-        .dad                          (unused_dad),
+        .dad                          (raster_dad),
         .image_area                   (unused_image_area),
         .graphics_area                (unused_graphics_area),
         .wide_access                  (unused_wide_access)
     );
 
-    // The primitive is connected to the physical memory pins now. Display,
-    // refresh, drawing, and DMA schedulers acquire its request port in their
-    // dedicated milestones; until then no memory cycle is fabricated.
+    // Graphics raster fetches own the primitive in this milestone. Refresh,
+    // drawing, DMA, and mode-specific display schedulers join through explicit
+    // arbitration in their dedicated milestones.
     upd7220_memif memory_interface (
         .clk_2x,
         .integration_reset_n,
         .reset_command,
-        .request_valid                (1'b0),
-        .request_ready                (unused_mem_request_ready),
+        .request_valid                (mem_display_request_valid),
+        .request_ready                (mem_request_ready),
         .request_kind                 (upd7220_pkg::MEM_CYCLE_DISPLAY),
-        .request_address              (unused_dad),
+        .request_address              (raster_dad),
         .rmw_write_data               (16'h0000),
-        .response_valid               (unused_mem_response_valid),
+        .response_valid               (mem_response_valid),
         .response_kind                (unused_mem_response_kind),
-        .response_address             (unused_mem_response_address),
-        .response_read_data           (unused_mem_response_read_data),
-        .cycle_active                 (unused_mem_cycle_active),
+        .response_address             (mem_response_address),
+        .response_read_data           (mem_response_read_data),
+        .cycle_active                 (mem_cycle_active),
         .cycle_kind                   (unused_mem_cycle_kind),
         .cycle_phase                  (unused_mem_cycle_phase),
         .rmw_read_data_valid          (unused_rmw_read_data_valid),

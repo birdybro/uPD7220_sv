@@ -242,10 +242,36 @@ cycles have no idle bubble. Integration and functional reset immediately force
 ALE/DBIN inactive-high and release AD, including a reset during DBIN or C4.
 Assertions prevent AD drive during DBIN and require read-before-write ordering.
 
-The primitive is connected to the public core pins but deliberately receives no
-requests until the next raster-fetch milestone. Refresh ownership, arbitration,
-zoom extension, BLANK ownership, and character/mixed A16/A17 multiplexing are
-not claimed by this block yet.
+The primitive is connected to the public core pins and accepts unzoomed graphics
+raster requests as described below. Refresh ownership, RMW arbitration, zoom
+extension, and character/mixed A16/A17 multiplexing are not claimed yet.
+
+## Graphics raster fetch scheduling
+
+After START leaves idle, each active graphics word requests one two-clock
+display primitive. The first request begins on the rising edge after horizontal
+timing enters an active word. Its C2 completes in time for the horizontal block
+to advance at the following falling word boundary; when another active word
+follows, the next request is accepted at the immediately following rising edge.
+This gives one address phase per programmed word with no idle memory clock.
+
+The request address is the partition block's current DAD. The same handshake
+that accepts C1 advances DAD, so a stalled or unavailable bus cannot make the
+display address run ahead of observable memory cycles. At a line boundary the
+partition sequencer reloads DAD from the saved line base plus pitch before the
+next active interval. Area boundaries likewise load the newly fetched SAD.
+Image mode therefore repeats an address on two accepted cycles and wide mode
+steps by two only after an actual cycle begins.
+
+Idle suppresses raster requests. Once START begins the display process, BCTRL
+and SYNC DE only control BLANK and do not stop the address scan; this preserves
+the documented distinction between display-process state and video blanking.
+Reset aborts an in-progress primitive and returns the scheduler to idle.
+
+Only graphics mode currently reaches this raw 18-bit path. Character mode must
+multiplex line-count/cursor information onto AD13-15 and A16/A17, while mixed
+mode uses A16/A17 for image/cursor/attribute control. Fetches for those modes
+remain gated until those responsibilities are implemented and cycle-tested.
 
 ## Compatibility profiles
 

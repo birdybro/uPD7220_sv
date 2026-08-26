@@ -252,6 +252,26 @@ external video hardware loads that word at the end of C2. RMW does consume the
 read word and always performs C4 writeback, including read operations whose
 writeback is unchanged.
 
+## Unzoomed graphics fetch cadence
+
+For a running graphics raster, the active-word and primitive edges compose as:
+
+| Edge | Raster state | Memory action | DAD action |
+|---|---|---|---|
+| falling edge entering active word | active word becomes true | none | retain current line/area start |
+| following rising edge | active word stable | accept display C1 and drive current DAD | advance/repeat DAD from the accepted-cycle handshake |
+| following falling edge | same active word | ALE falls | no architectural address change |
+| next rising edge | same active word | enter C2 and release AD | none |
+| next falling edge | advance horizontal word/line | sample external display data | none |
+| next rising edge | next word or retrace already selected | complete response; accept next C1 only if another active word exists | next accepted cycle advances DAD |
+
+At active-line entry and every partition boundary, descriptor/line-base loading
+occurs during horizontal retrace before the first active request. Thus the first
+C1 of every line observes the newly selected SAD or pitched line base. BCTRL
+changes BLANK but does not alter this cadence after START; RESET/idle prevents
+requests entirely. The current integrated cadence is constrained to unzoomed
+graphics mode until mode-pin multiplexing and zoom-lengthening milestones.
+
 ## Display-memory electrical timing (base 82720)
 
 The following page-27 propagation/setup values are recorded separately from the

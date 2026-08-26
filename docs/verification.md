@@ -85,6 +85,16 @@ RMW samples without reusing the RTL state-machine structure. Assertions prove
 that DBIN and GDC AD drive never overlap and that an RMW write cannot precede
 the read phase.
 
+The integrated graphics-fetch test programs SYNC, PITCH, two PRAM areas, RESET,
+and START solely through asynchronous host pins. Its recorded physical address
+sequence crosses line pitch, partition, image-repeat, and upper-address-bank
+boundaries: `30100,30101,30104,30105,20200,20200`. An independent model emits
+the same accepted-fetch sequence. The memory-side driver supplies a distinct
+word for every address and the test checks the primitive's end-C2 samples.
+A second trace proves that idle emits no memory cycle, BCTRL DE=0 leaves the
+running scan cadence intact while BLANK is high, and BCTRL DE=1 restores
+unblanked fetches.
+
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent
 of the physical GDC wrapper.

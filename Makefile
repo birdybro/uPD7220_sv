@@ -29,7 +29,7 @@ test-rtl: $(VENV_STAMP)
 	$(VENV_PYTHON) -m pytest -m rtl tests
 
 test-timing: $(VENV_STAMP)
-	$(VENV_PYTHON) -m pytest tests/model/test_video_timing.py tests/model/test_vertical_timing.py tests/model/test_memif_model.py tests/test_rtl_video_timing.py tests/test_rtl_vertical_timing.py tests/test_rtl_memif.py
+	$(VENV_PYTHON) -m pytest tests/model/test_video_timing.py tests/model/test_vertical_timing.py tests/model/test_memif_model.py tests/model/test_partitions_model.py tests/test_rtl_video_timing.py tests/test_rtl_vertical_timing.py tests/test_rtl_memif.py tests/test_rtl_display_fetch.py
 
 test-random: test
 

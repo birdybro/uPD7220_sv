@@ -74,6 +74,27 @@ def test_graphics_partition_fetch_and_image_wide_stepping() -> None:
     assert model.dad == 0x00102
 
 
+def test_accepted_fetches_form_the_cross_line_address_stream() -> None:
+    model = GdcModel()
+    model.reset_command()
+    model.sync.display_mode = DisplayMode.GRAPHICS
+    model.pitch = 4
+    load_descriptors(
+        model,
+        graphics_descriptor(0x30100, 2),
+        graphics_descriptor(0x20200, 1, image=True),
+    )
+
+    model.start_active_display()
+    addresses = [model.accept_display_fetch() for _ in range(2)]
+    model.start_display_line()
+    addresses += [model.accept_display_fetch() for _ in range(2)]
+    model.start_display_line()
+    addresses += [model.accept_display_fetch() for _ in range(2)]
+
+    assert addresses == [0x30100, 0x30101, 0x30104, 0x30105, 0x20200, 0x20200]
+
+
 def test_character_row_repeat_four_areas_and_thirteen_bit_wrap() -> None:
     model = GdcModel()
     model.reset_command()

@@ -57,18 +57,18 @@ async def host_programmed_partitions_follow_the_live_raster(dut: object) -> None
     await host.write_command(0x00)
     await host.write_command(0x6B)
 
-    await wait_for(dut, lambda: int(dut.unused_partition_active.value) == 1)
+    await wait_for(dut, lambda: int(dut.raster_partition_active.value) == 1)
     assert int(dut.unused_partition_index.value) == 0
     assert int(dut.unused_partition_line_count.value) == 2
     assert int(dut.unused_partition_start_address.value) == 0x00100
-    assert int(dut.unused_dad.value) == 0x00100
+    assert int(dut.raster_dad.value) == 0x00100
 
     await wait_for(dut, lambda: int(dut.unused_partition_line_index.value) == 1)
-    assert int(dut.unused_dad.value) == 0x00102
+    assert int(dut.raster_dad.value) == 0x00102
 
     await wait_for(dut, lambda: int(dut.unused_partition_index.value) == 1)
     assert int(dut.unused_partition_start_address.value) == 0x00200
-    assert int(dut.unused_dad.value) == 0x00200
+    assert int(dut.raster_dad.value) == 0x00200
     assert int(dut.unused_image_area.value) == 1
     assert int(dut.unused_graphics_area.value) == 1
     assert int(dut.unused_wide_access.value) == 1

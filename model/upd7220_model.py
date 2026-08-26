@@ -941,6 +941,14 @@ class GdcModel:
             current_dad + amount, self.display_address_mode
         )
 
+    def accept_display_fetch(self) -> int:
+        """Return the current DAD and advance it for one accepted bus cycle."""
+        if not self.display_partition_active or self.dad is None:
+            raise ModelError("display fetch requires an active partition")
+        address = self.dad
+        self.advance_display_slot()
+        return address
+
     def end_active_display(self) -> None:
         self.display_partition_active = False
         self.display_repeat = False
