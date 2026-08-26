@@ -751,6 +751,12 @@ class GdcModel:
                 self.ead = (current & 0x0FFFF) | ((entry.value & 0x03) << 16)
                 self.dad_dot = entry.value >> 4
                 self.mask = 1 << self.dad_dot
+        elif kind is CommandKind.MASK:
+            current = 0 if self.mask is None else self.mask
+            if index == 0:
+                self.mask = (current & 0xFF00) | entry.value
+            elif index == 1:
+                self.mask = (current & 0x00FF) | (entry.value << 8)
         elif kind is CommandKind.PRAM:
             address = (opcode & 0x0F) + index
             if not 0 <= address < 16:

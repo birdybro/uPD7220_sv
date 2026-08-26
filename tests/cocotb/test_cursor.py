@@ -7,6 +7,7 @@ from cocotb.triggers import ReadOnly, RisingEdge, Timer
 
 CMD_START = 5
 CMD_CURS = 8
+CMD_MASK = 12
 CMD_CURD = 17
 
 
@@ -35,9 +36,11 @@ async def start_and_reset(dut: object) -> None:
     dut.integration_reset_n.value = 1
 
 
-async def parameter(dut: object, index: int, value: int) -> None:
+async def parameter(
+    dut: object, index: int, value: int, *, kind: int = CMD_CURS
+) -> None:
     dut.parameter_valid.value = 1
-    dut.parameter_kind.value = CMD_CURS
+    dut.parameter_kind.value = kind
     dut.parameter_index.value = index
     dut.parameter_data.value = value
     await edge(dut)
@@ -49,6 +52,11 @@ async def program_cursor(dut: object, ead: int, dot: int) -> None:
     await parameter(dut, 0, ead & 0xFF)
     await parameter(dut, 1, (ead >> 8) & 0xFF)
     await parameter(dut, 2, ((dot & 0x0F) << 4) | ((ead >> 16) & 0x03))
+
+
+async def program_mask(dut: object, value: int) -> None:
+    await parameter(dut, 0, value & 0xFF, kind=CMD_MASK)
+    await parameter(dut, 1, (value >> 8) & 0xFF, kind=CMD_MASK)
 
 
 async def command_event(dut: object, kind: int) -> None:
@@ -87,6 +95,36 @@ async def cursor_state_survives_functional_reset_and_partial_curs(dut: object) -
     assert int(dut.ead.value) == 0x35678
     assert int(dut.dot_address.value) == 10
     assert int(dut.mask.value) == 0x0400
+
+
+@cocotb.test()
+async def mask_loads_low_then_high_and_shares_curs_register(dut: object) -> None:
+    await start_and_reset(dut)
+    for value in (0x0000, 0xFFFF, 0xA55A, 0x8001):
+        await program_mask(dut, value)
+        assert int(dut.mask.value) == value
+
+    await program_cursor(dut, 0x12345, 6)
+    assert int(dut.mask.value) == 0x0040
+    await program_mask(dut, 0x6996)
+    assert int(dut.mask.value) == 0x6996
+    assert int(dut.ead.value) == 0x12345
+    assert int(dut.dot_address.value) == 6
+
+
+@cocotb.test()
+async def partial_mask_and_reset_preserve_each_received_byte(dut: object) -> None:
+    await start_and_reset(dut)
+    await program_mask(dut, 0xABCD)
+    await parameter(dut, 0, 0x34, kind=CMD_MASK)
+    await command_event(dut, CMD_START)
+    assert int(dut.mask.value) == 0xAB34
+
+    dut.reset_command.value = 1
+    await edge(dut)
+    await finish_edge()
+    dut.reset_command.value = 0
+    assert int(dut.mask.value) == 0xAB34
 
 
 @cocotb.test()

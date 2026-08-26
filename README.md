@@ -10,6 +10,8 @@ FIFO, base opcode parsing, dedicated RESET, and RESET/SYNC/VSYNC register
 programming, START/BCTRL idle and blank control, falling-edge-aligned horizontal
 raster timing, noninterlaced vertical/master-sync timing, and the base eight-bit
 pitch register, plus CURS address/mask programming and five-byte CURD readback.
+MASK directly loads the same shared 16-bit modification register with
+interruptible low-byte/high-byte semantics.
 The raw 16-byte Parameter RAM and its addressed sequential loading are also
 implemented. Its display-partition consumer decodes the character, graphics,
 and mixed-mode descriptor formats, sequences DAD across scanlines and area

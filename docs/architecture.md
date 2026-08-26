@@ -150,7 +150,7 @@ The explicit 7220A PH ninth bit is not mixed into the base behavior. Its
 evidence-backed location is SYNC/RESET P5 bit 6 and will be enabled with
 variant-specific tests in the A-profile milestone.
 
-## Cursor address and CURD response
+## Cursor address, MASK, and CURD response
 
 `upd7220_cursor` owns the 18-bit Execute Address and the shared 16-bit mask.
 CURS P1/P2 update the low and middle EAD bytes independently. Graphics-mode P3
@@ -158,6 +158,12 @@ loads EAD bits 17:16 and expands its four-bit dAD field to a one-of-16 mask.
 This incremental loading preserves the documented optional character-mode
 two-byte prefix behavior. Functional RESET aborts a response without erasing
 the programmer-loaded address or mask.
+
+MASK P1 and P2 load the low and high bytes of that same 16-bit mask register.
+Each parameter takes effect when consumed, so a new command after P1 preserves
+the new low byte and prior high byte. A later CURS P3 replaces the full mask
+with its one-of-16 dAD expansion; a later MASK leaves EAD and the last CURS dot
+field untouched. Functional RESET retains MASK just as it retains EAD.
 
 CURD snapshots EAD and mask on its registered command-start event and requests
 FIFO read turnaround at that same command boundary. Its held-valid producer

@@ -72,3 +72,28 @@ async def new_command_aborts_unread_curd_bytes_and_restores_write_mode(dut: obje
         await wait_for_data_ready(host)
         returned.append(await host.read_fifo())
     assert returned == [0xCD, 0xAB, 0x02, 0x80, 0x00]
+
+
+@cocotb.test()
+async def host_mask_load_and_partial_interruption_are_visible_through_curd(
+    dut: object,
+) -> None:
+    host = await initialize(dut)
+    await host.write_command(0x49)
+    await host.write_parameter(0x45)
+    await host.write_parameter(0x23)
+    await host.write_parameter(0x61)
+
+    await host.write_command(0x4A)
+    await host.write_parameter(0xCD)
+    await host.write_parameter(0xAB)
+    await host.write_command(0x4A)
+    await host.write_parameter(0x34)
+    await host.write_command(0x6B)
+
+    await host.write_command(0xE0)
+    returned = []
+    for _ in range(5):
+        await wait_for_data_ready(host)
+        returned.append(await host.read_fifo())
+    assert returned == [0x45, 0x23, 0x01, 0x34, 0xAB]

@@ -58,6 +58,12 @@ new-command abortion of unread response bytes. The integrated test drives only
 the asynchronous host pins and checks the documented byte order via status
 polling and FIFO reads.
 
+MASK tests load `0000h`, `FFFFh`, `A55Ah`, `8001h`, and an asymmetric shared
+CURS/MASK sequence. They verify low-before-high assembly, immediate P1 effect,
+new-command interruption after P1, prior-high-byte retention, RESET retention,
+EAD isolation, CURS replacement of an arbitrary mask, and CURD readback through
+the complete host/FIFO path.
+
 Parameter RAM tests load all 16 locations both sequentially from SA=0 and as P1
 from every SA value, verify the packed byte ordering, interrupt a partial stream,
 check unrelated-parameter isolation, retain data across functional RESET, and

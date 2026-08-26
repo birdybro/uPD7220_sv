@@ -90,15 +90,28 @@ module upd7220_cursor (
                 end
             end
 
-            if (parameter_valid
-                && (parameter_kind == upd7220_pkg::CMD_CURS)) begin
-                unique case (parameter_index)
-                    4'd0: ead_q[7:0]   <= parameter_data;
-                    4'd1: ead_q[15:8]  <= parameter_data;
-                    4'd2: begin
-                        ead_q[17:16]    <= parameter_data[1:0];
-                        dot_address_q   <= parameter_data[7:4];
-                        mask_q          <= 16'h0001 << parameter_data[7:4];
+            if (parameter_valid) begin
+                unique case (parameter_kind)
+                    upd7220_pkg::CMD_CURS: begin
+                        unique case (parameter_index)
+                            4'd0: ead_q[7:0]   <= parameter_data;
+                            4'd1: ead_q[15:8]  <= parameter_data;
+                            4'd2: begin
+                                ead_q[17:16]    <= parameter_data[1:0];
+                                dot_address_q   <= parameter_data[7:4];
+                                mask_q <= 16'h0001 << parameter_data[7:4];
+                            end
+                            default: begin
+                            end
+                        endcase
+                    end
+                    upd7220_pkg::CMD_MASK: begin
+                        unique case (parameter_index)
+                            4'd0: mask_q[7:0]  <= parameter_data;
+                            4'd1: mask_q[15:8] <= parameter_data;
+                            default: begin
+                            end
+                        endcase
                     end
                     default: begin
                     end
@@ -120,6 +133,18 @@ module upd7220_cursor (
         @(posedge clk_2x) turn_to_read |->
             (command_start && (started_kind == upd7220_pkg::CMD_CURD));
     endproperty
+    property p_mask_low_byte_load;
+        @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)
+            (parameter_valid && (parameter_kind == upd7220_pkg::CMD_MASK)
+             && (parameter_index == 4'd0))
+            |=> (mask_q[7:0] == $past(parameter_data));
+    endproperty
+    property p_mask_high_byte_load;
+        @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)
+            (parameter_valid && (parameter_kind == upd7220_pkg::CMD_MASK)
+             && (parameter_index == 4'd1))
+            |=> (mask_q[15:8] == $past(parameter_data));
+    endproperty
 
     assert property (p_curd_response_index_in_range)
         else $error("CURD response index exceeded five-byte response");
@@ -127,6 +152,10 @@ module upd7220_cursor (
         else $error("CURS failed to expand dAD to a one-of-16 mask");
     assert property (p_turnaround_is_curd_only)
         else $error("cursor block requested a non-CURD FIFO turnaround");
+    assert property (p_mask_low_byte_load)
+        else $error("MASK P1 failed to load the low mask byte");
+    assert property (p_mask_high_byte_load)
+        else $error("MASK P2 failed to load the high mask byte");
 `endif
 
 endmodule
