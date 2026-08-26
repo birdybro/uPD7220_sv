@@ -44,24 +44,60 @@ module upd7220_core #(
     logic       fifo_empty;
     logic       fifo_full;
     logic       fifo_data_ready;
-    logic       unused_command_valid;
-    logic       unused_command_is_command;
-    logic [7:0] unused_command_data;
+    logic       command_valid;
+    logic       command_is_command;
+    logic [7:0] command_data;
+    logic       command_pop;
     logic       unused_fifo_read_direction;
     logic [4:0] unused_fifo_occupancy;
     logic       unused_response_ready;
+    logic       unused_command_start;
+    logic       unused_command_known;
+    upd7220_pkg::command_kind_t unused_started_kind;
+    logic [7:0] unused_started_opcode;
+    logic [4:0] unused_started_parameter_limit;
+    logic       unused_parameter_valid;
+    logic [7:0] unused_parameter_data;
+    logic [3:0] unused_parameter_index;
+    upd7220_pkg::command_kind_t unused_parameter_kind;
+    logic [7:0] unused_parameter_opcode;
+    logic       unused_command_complete;
+    logic [7:0] unused_completed_opcode;
+    logic       unused_command_interrupted;
+    logic [7:0] unused_interrupted_opcode;
+    logic       unused_unexpected_parameter;
+    logic       unused_command_active;
+    upd7220_pkg::command_kind_t unused_active_kind;
+    logic [7:0] unused_active_opcode;
+    logic [3:0] unused_next_parameter_index;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
         dack_n,
         mem_ad_i,
         lpen,
-        unused_command_valid,
-        unused_command_is_command,
-        unused_command_data,
         unused_fifo_read_direction,
         unused_fifo_occupancy,
-        unused_response_ready
+        unused_response_ready,
+        unused_command_start,
+        unused_command_known,
+        unused_started_kind,
+        unused_started_opcode,
+        unused_started_parameter_limit,
+        unused_parameter_valid,
+        unused_parameter_data,
+        unused_parameter_index,
+        unused_parameter_kind,
+        unused_parameter_opcode,
+        unused_command_complete,
+        unused_completed_opcode,
+        unused_command_interrupted,
+        unused_interrupted_opcode,
+        unused_unexpected_parameter,
+        unused_command_active,
+        unused_active_kind,
+        unused_active_opcode,
+        unused_next_parameter_index
     };
 
     assign status_value = integration_initialized_q
@@ -93,10 +129,10 @@ module upd7220_core #(
         .host_write_is_command     (fifo_write_is_command),
         .host_write_data           (fifo_write_data),
         .host_read_pop             (fifo_read_pop),
-        .command_valid             (unused_command_valid),
-        .command_is_command        (unused_command_is_command),
-        .command_data              (unused_command_data),
-        .command_pop               (1'b0),
+        .command_valid,
+        .command_is_command,
+        .command_data,
+        .command_pop,
         .turn_to_read              (1'b0),
         .response_valid            (1'b0),
         .response_data             (8'h00),
@@ -107,6 +143,36 @@ module upd7220_core #(
         .data_ready                (fifo_data_ready),
         .read_direction            (unused_fifo_read_direction),
         .occupancy                 (unused_fifo_occupancy)
+    );
+
+    upd7220_command command_processor (
+        .clk_2x,
+        .integration_reset_n,
+        .command_reset             (1'b0),
+        .processor_enable          (1'b1),
+        .fifo_valid                (command_valid),
+        .fifo_is_command           (command_is_command),
+        .fifo_data                 (command_data),
+        .fifo_pop                  (command_pop),
+        .command_start             (unused_command_start),
+        .command_known             (unused_command_known),
+        .started_kind              (unused_started_kind),
+        .started_opcode            (unused_started_opcode),
+        .started_parameter_limit   (unused_started_parameter_limit),
+        .parameter_valid           (unused_parameter_valid),
+        .parameter_data            (unused_parameter_data),
+        .parameter_index           (unused_parameter_index),
+        .parameter_kind            (unused_parameter_kind),
+        .parameter_opcode          (unused_parameter_opcode),
+        .command_complete          (unused_command_complete),
+        .completed_opcode          (unused_completed_opcode),
+        .command_interrupted       (unused_command_interrupted),
+        .interrupted_opcode        (unused_interrupted_opcode),
+        .unexpected_parameter      (unused_unexpected_parameter),
+        .command_active            (unused_command_active),
+        .active_kind               (unused_active_kind),
+        .active_opcode             (unused_active_opcode),
+        .next_parameter_index      (unused_next_parameter_index)
     );
 
     generate

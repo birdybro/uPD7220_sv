@@ -57,6 +57,96 @@ class CommandState(str, Enum):
     READ_RESPONSE = "read_response"
 
 
+class CommandKind(str, Enum):
+    RESET = "reset"
+    SYNC = "sync"
+    VSYNC = "vsync"
+    CCHAR = "cchar"
+    START = "start"
+    BCTRL = "bctrl"
+    ZOOM = "zoom"
+    CURS = "curs"
+    PRAM = "pram"
+    PITCH = "pitch"
+    WDAT = "wdat"
+    MASK = "mask"
+    FIGS = "figs"
+    FIGD = "figd"
+    GCHRD = "gchrd"
+    RDAT = "rdat"
+    CURD = "curd"
+    LPRD = "lprd"
+    DMAR = "dmar"
+    DMAW = "dmaw"
+
+
+@dataclass(frozen=True)
+class CommandDecode:
+    kind: CommandKind | None
+    parameter_limit: int
+    repeats_parameter_group: bool = False
+
+
+@dataclass(frozen=True)
+class ParserEvent:
+    started: CommandKind | None = None
+    started_opcode: int | None = None
+    parameter: tuple[CommandKind, int, int] | None = None
+    completed_opcode: int | None = None
+    interrupted_opcode: int | None = None
+    unknown_opcode: int | None = None
+    unexpected_parameter: int | None = None
+
+
+def decode_command(opcode: int) -> CommandDecode:
+    """Decode the base 7220/82720 Figure 12 command map."""
+    if not 0 <= opcode <= BYTE_MASK:
+        raise ValueError("opcode exceeds eight bits")
+    exact = {
+        0x00: (CommandKind.RESET, 8),
+        0x4B: (CommandKind.CCHAR, 3),
+        0x6B: (CommandKind.START, 0),
+        0x46: (CommandKind.ZOOM, 1),
+        0x49: (CommandKind.CURS, 3),
+        0x47: (CommandKind.PITCH, 1),
+        0x4A: (CommandKind.MASK, 2),
+        0x4C: (CommandKind.FIGS, 11),
+        0x6C: (CommandKind.FIGD, 0),
+        0x68: (CommandKind.GCHRD, 0),
+        0xE0: (CommandKind.CURD, 0),
+        0xC0: (CommandKind.LPRD, 0),
+    }
+    if opcode in exact:
+        kind, limit = exact[opcode]
+        return CommandDecode(kind, limit, kind is CommandKind.WDAT)
+    if opcode in (0x0E, 0x0F):
+        return CommandDecode(CommandKind.SYNC, 8)
+    if opcode in (0x6E, 0x6F):
+        return CommandDecode(CommandKind.VSYNC, 0)
+    if opcode in (0x0C, 0x0D):
+        return CommandDecode(CommandKind.BCTRL, 0)
+    if 0x70 <= opcode <= 0x7F:
+        return CommandDecode(CommandKind.PRAM, 16 - (opcode & 0x0F))
+
+    transfer_type = (opcode >> 3) & 0x03
+    if transfer_type == 0x01:
+        return CommandDecode(None, 0)
+    family = opcode & 0xE4
+    if family == 0x20:
+        return CommandDecode(
+            CommandKind.WDAT,
+            2 if transfer_type == 0 else 1,
+            repeats_parameter_group=True,
+        )
+    if family == 0x24:
+        return CommandDecode(CommandKind.DMAW, 0)
+    if family == 0xA0:
+        return CommandDecode(CommandKind.RDAT, 0)
+    if family == 0xA4:
+        return CommandDecode(CommandKind.DMAR, 0)
+    return CommandDecode(None, 0)
+
+
 @dataclass(frozen=True)
 class FifoEntry:
     value: int
@@ -159,6 +249,11 @@ class GdcModel:
         self.light_pen_detected = False
         self.vertical_blank_status_select = False
         self.command_state = CommandState.IDLE
+        self.active_command_kind: CommandKind | None = None
+        self.active_command_opcode: int | None = None
+        self.next_parameter_index = 0
+        self.active_parameter_limit = 0
+        self.active_repeats_parameter_group = False
         self.fifo_direction = FifoDirection.WRITE_TO_GDC
         self._fifo: deque[FifoEntry] = deque()
         self.data_register: int | None = None
@@ -196,6 +291,11 @@ class GdcModel:
         self.drawing_active = False
         self.light_pen_detected = False
         self.command_state = CommandState.IDLE
+        self.active_command_kind = None
+        self.active_command_opcode = None
+        self.next_parameter_index = 0
+        self.active_parameter_limit = 0
+        self.active_repeats_parameter_group = False
         self.fifo_direction = FifoDirection.WRITE_TO_GDC
         self._fifo.clear()
         self.data_register = None
@@ -231,9 +331,13 @@ class GdcModel:
         if not 0 <= value <= BYTE_MASK:
             raise ValueError("host byte exceeds eight bits")
         if self.fifo_direction is FifoDirection.READ_FROM_GDC:
+            if not is_command:
+                raise ModelError("only a command byte can terminate FIFO read mode")
             self._fifo.clear()
             self.fifo_direction = FifoDirection.WRITE_TO_GDC
             self.command_state = CommandState.IDLE
+            self.data_register = None
+            self.read_refill_count = 0
         if len(self._fifo) == FIFO_CAPACITY:
             self._fifo.popleft()
         self._fifo.append(FifoEntry(value=value, is_command=is_command))
@@ -242,6 +346,69 @@ class GdcModel:
         if self.fifo_direction is not FifoDirection.WRITE_TO_GDC or not self._fifo:
             raise FifoUnderflowError("no CPU-to-GDC FIFO byte is available")
         return self._fifo.popleft()
+
+    def parser_step(self) -> ParserEvent:
+        """Consume one CPU-to-GDC FIFO byte and advance command parsing."""
+        entry = self.command_processor_read()
+        if entry.is_command:
+            interrupted = self.active_command_opcode
+            decoded = decode_command(entry.value)
+            if decoded.kind is None:
+                self.command_state = CommandState.IDLE
+                self.active_command_kind = None
+                self.active_command_opcode = None
+                self.next_parameter_index = 0
+                self.active_parameter_limit = 0
+                self.active_repeats_parameter_group = False
+                return ParserEvent(
+                    interrupted_opcode=interrupted,
+                    unknown_opcode=entry.value,
+                )
+
+            self.active_command_kind = decoded.kind
+            self.active_command_opcode = entry.value
+            self.next_parameter_index = 0
+            self.active_parameter_limit = decoded.parameter_limit
+            self.active_repeats_parameter_group = decoded.repeats_parameter_group
+            if decoded.parameter_limit == 0:
+                self.command_state = CommandState.IDLE
+                self.active_command_kind = None
+                self.active_command_opcode = None
+                return ParserEvent(
+                    started=decoded.kind,
+                    started_opcode=entry.value,
+                    completed_opcode=entry.value,
+                    interrupted_opcode=interrupted,
+                )
+
+            self.command_state = CommandState.PARAMETERS
+            return ParserEvent(
+                started=decoded.kind,
+                started_opcode=entry.value,
+                interrupted_opcode=interrupted,
+            )
+
+        if self.command_state is not CommandState.PARAMETERS:
+            return ParserEvent(unexpected_parameter=entry.value)
+        if self.active_command_kind is None or self.active_command_opcode is None:
+            raise ModelError("parameter state has no active command")
+
+        kind = self.active_command_kind
+        opcode = self.active_command_opcode
+        index = self.next_parameter_index
+        parameter = (kind, index, entry.value)
+        if self.active_repeats_parameter_group:
+            self.next_parameter_index = (index + 1) % self.active_parameter_limit
+            return ParserEvent(parameter=parameter)
+
+        self.next_parameter_index += 1
+        if self.next_parameter_index == self.active_parameter_limit:
+            self.command_state = CommandState.IDLE
+            self.active_command_kind = None
+            self.active_command_opcode = None
+            self.next_parameter_index = 0
+            return ParserEvent(parameter=parameter, completed_opcode=opcode)
+        return ParserEvent(parameter=parameter)
 
     def begin_read_response(self) -> None:
         """Perform the FIFO turnaround caused by RDAT, CURD, or LPRD."""
@@ -319,6 +486,11 @@ class GdcModel:
             "data_register": self.data_register,
             "read_refill_count": self.read_refill_count,
             "command_state": self.command_state.value,
+            "active_command_kind": (
+                self.active_command_kind.value if self.active_command_kind else None
+            ),
+            "active_command_opcode": self.active_command_opcode,
+            "next_parameter_index": self.next_parameter_index,
             "ead": self.ead,
             "dad": self.dad,
             "dad_dot": self.dad_dot,

@@ -56,6 +56,20 @@ DATA READY describes that register. A waiting byte takes four 2xWCLK edges to
 move from the ring into the register. A command write aborts read mode and is
 accepted even when the read ring reports full.
 
+## Command decoder and parameter parser
+
+`upd7220_command` consumes tagged write-direction FIFO entries through an
+explicit enable. Opcode decoding is centralized in `upd7220_pkg` and covers the
+complete base Figure 12 map, including all modifiers and invalid transfer-type
+holes. Registered events separate command start, parameter delivery, normal
+completion, interruption by a later command, and unexpected parameters.
+
+Fixed-length commands complete at their documented boundary. RESET, CURS, and
+FIGS may be terminated by a new command after an optional prefix; PRAM derives
+its maximum length from SA; WDAT repeats one- or two-byte groups until another
+command arrives. This parser does not implement command effects. Those effects
+consume its events in later register, memory, drawing, and DMA modules.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:
