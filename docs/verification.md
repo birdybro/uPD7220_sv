@@ -65,6 +65,16 @@ exercise the complete asynchronous host/FIFO/parser/register route. Per-byte RTL
 assertions prove that a write loads its selected byte and leaves every other byte
 stable.
 
+Display-partition tests independently pack and decode the primary Figures 10
+and 11 layouts. The RTL suite covers two graphics and mixed areas, all four
+character areas, current-versus-future descriptor rewrites, exact line-count
+transitions, character-row repetition, image every-other-slot behavior, wide
+two-word increments, and 13-, 16-, and 18-bit DAD wrapping. A full integration
+test sends SYNC, PRAM, RESET, and START through the asynchronous host/FIFO/parser
+path and observes area and DAD transitions on the live raster. The Python model
+uses boundary-triggered descriptor decoding rather than the RTL decoder's
+structure and checks the same architectural vectors.
+
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent
 of the physical GDC wrapper.

@@ -86,7 +86,7 @@ module upd7220_core #(
     logic [7:0] unused_sync_p6;
     logic [7:0] unused_sync_p7;
     logic [7:0] unused_sync_p8;
-    upd7220_pkg::display_mode_t unused_display_mode;
+    upd7220_pkg::display_mode_t sync_display_mode;
     upd7220_pkg::framing_mode_t unused_framing_mode;
     logic       unused_refresh_enable;
     logic       unused_drawing_during_retrace_only;
@@ -99,22 +99,32 @@ module upd7220_core #(
     logic [10:0] sync_active_lines;
     logic [6:0] sync_vertical_back_porch;
     logic       unused_horizontal_blank;
-    logic       unused_active_word;
-    logic       unused_line_start;
+    logic       timing_active_word;
+    logic       timing_line_start;
     upd7220_pkg::horizontal_phase_t unused_horizontal_phase;
     logic [8:0] unused_horizontal_word_index;
     logic       timing_line_advance;
     logic       timing_vertical_blank;
-    logic       unused_active_line;
+    logic       timing_active_line;
     logic       unused_field_start;
     upd7220_pkg::vertical_phase_t unused_vertical_phase;
     logic [10:0] unused_vertical_line_index;
-    logic [8:0] unused_pitch;
+    logic [8:0] display_pitch;
     logic [17:0] unused_ead;
     logic [3:0] unused_dot_address;
     logic [15:0] unused_mask;
-    logic [127:0] unused_parameter_ram;
+    logic [127:0] display_parameter_ram;
     logic [15:0] unused_pram_programmed_mask;
+    logic       unused_partition_active;
+    logic [1:0] unused_partition_index;
+    logic [10:0] unused_partition_line_index;
+    logic [10:0] unused_partition_line_count;
+    logic [5:0] unused_character_scanline;
+    logic [17:0] unused_partition_start_address;
+    logic [17:0] unused_dad;
+    logic       unused_image_area;
+    logic       unused_graphics_area;
+    logic       unused_wide_access;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -144,25 +154,29 @@ module upd7220_core #(
         unused_sync_p6,
         unused_sync_p7,
         unused_sync_p8,
-        unused_display_mode,
         unused_framing_mode,
         unused_refresh_enable,
         unused_drawing_during_retrace_only,
         unused_horizontal_blank,
-        unused_active_word,
-        unused_line_start,
         unused_horizontal_phase,
         unused_horizontal_word_index,
-        unused_active_line,
         unused_field_start,
         unused_vertical_phase,
         unused_vertical_line_index,
-        unused_pitch,
         unused_ead,
         unused_dot_address,
         unused_mask,
-        unused_parameter_ram,
-        unused_pram_programmed_mask
+        unused_pram_programmed_mask,
+        unused_partition_active,
+        unused_partition_index,
+        unused_partition_line_index,
+        unused_partition_line_count,
+        unused_character_scanline,
+        unused_partition_start_address,
+        unused_dad,
+        unused_image_area,
+        unused_graphics_area,
+        unused_wide_access
     };
 
     assign status_value = device_initialized_q
@@ -266,7 +280,7 @@ module upd7220_core #(
         .sync_p6                   (unused_sync_p6),
         .sync_p7                   (unused_sync_p7),
         .sync_p8                   (unused_sync_p8),
-        .display_mode              (unused_display_mode),
+        .display_mode              (sync_display_mode),
         .framing_mode              (unused_framing_mode),
         .refresh_enable            (unused_refresh_enable),
         .drawing_during_retrace_only (unused_drawing_during_retrace_only),
@@ -289,7 +303,7 @@ module upd7220_core #(
         .parameter_kind,
         .parameter_index,
         .parameter_data,
-        .pitch                      (unused_pitch)
+        .pitch                      (display_pitch)
     );
 
     upd7220_cursor cursor_registers (
@@ -320,8 +334,35 @@ module upd7220_core #(
         .start_address                 (parameter_opcode[3:0]),
         .parameter_index,
         .parameter_data,
-        .parameter_ram               (unused_parameter_ram),
+        .parameter_ram               (display_parameter_ram),
         .programmed_mask             (unused_pram_programmed_mask)
+    );
+
+    upd7220_partitions display_partitions (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .display_mode                 (sync_display_mode),
+        .pitch                        (display_pitch),
+        // CCHAR supplies the actual row height in Milestone 34. A value of
+        // one preserves correct graphics and one-scanline character behavior.
+        .lines_per_character_row      (6'd1),
+        .parameter_ram                (display_parameter_ram),
+        .active_line                  (timing_active_line),
+        .line_start                   (timing_line_start),
+        .display_advance              (
+            timing_active_line && timing_active_word && word_time_ce
+        ),
+        .partition_active             (unused_partition_active),
+        .partition_index              (unused_partition_index),
+        .partition_line_index         (unused_partition_line_index),
+        .partition_line_count         (unused_partition_line_count),
+        .character_scanline           (unused_character_scanline),
+        .partition_start_address      (unused_partition_start_address),
+        .dad                          (unused_dad),
+        .image_area                   (unused_image_area),
+        .graphics_area                (unused_graphics_area),
+        .wide_access                  (unused_wide_access)
     );
 
     upd7220_video_timing video_timing (
@@ -338,8 +379,8 @@ module upd7220_core #(
         .hsync,
         .horizontal_blank           (unused_horizontal_blank),
         .blank,
-        .active_word                (unused_active_word),
-        .line_start                 (unused_line_start),
+        .active_word                (timing_active_word),
+        .line_start                 (timing_line_start),
         .line_advance_ce            (timing_line_advance),
         .horizontal_phase           (unused_horizontal_phase),
         .horizontal_word_index      (unused_horizontal_word_index)
@@ -356,7 +397,7 @@ module upd7220_core #(
         .vertical_back_porch        (sync_vertical_back_porch),
         .vsync                      (v_ext_sync_o),
         .vertical_blank             (timing_vertical_blank),
-        .active_line                (unused_active_line),
+        .active_line                (timing_active_line),
         .field_start                (unused_field_start),
         .vertical_phase             (unused_vertical_phase),
         .vertical_line_index        (unused_vertical_line_index)

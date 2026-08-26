@@ -181,9 +181,40 @@ stop any partial load.
 
 Integration reset establishes deterministic zeros for FPGA use. The functional
 RESET command blocks a coincident write but retains all Parameter RAM bytes, as
-required for programmer-loaded parameters. Partition fields, graphics drawing
-patterns, and graphics-character scan order consume this storage in later
-modules; the raw store does not prematurely impose any of those interpretations.
+required for programmer-loaded parameters. Dedicated consumers interpret the
+partition fields now and will later interpret graphics drawing patterns and
+graphics-character scan order; the raw store itself imposes none of them.
+
+## Display partitions and DAD
+
+`upd7220_partitions` interprets the raw Parameter RAM only when a display area
+begins. Character mode uses four RA0/4/8/12 descriptors with 13-bit SADs;
+graphics and mixed modes use two RA0/4 descriptors with 18-bit SADs, leaving
+RA8 through RA15 available for drawing patterns. Each descriptor latches its
+SAD, ten-bit line count, image bit, and wide bit. The later-area fetch boundary
+is important: software may update a future partition during the current one,
+while changing any byte of the current four-byte descriptor cannot perturb the
+already running area.
+
+DAD is normalized to the address range externally supported in each mode:
+13 bits in character mode, 16 bits in mixed mode, and 18 bits in graphics mode.
+At a graphics scanline boundary the saved line base advances by pitch. A
+character area repeats the line base for the programmed character-row height,
+then advances by pitch for the next character row. The standalone partition
+block already accepts the actual row height; the integrated core supplies one
+until the later CCHAR milestone connects its decoded LR register.
+
+A normal display slot advances DAD by one word, and WD advances it by two.
+When IM is set, one address is held for two successive display slots before
+that increment. In mixed mode the same IM bit classifies the area as graphics;
+in character mode it selects the documented every-other-read DAD operation.
+The application manual also documents this repeated-address operation in
+graphics mode, while requiring IM=0 for normal graphics display.
+
+The partition block currently produces the address stream consumed by the
+future display-memory-cycle scheduler. It does not yet drive AD/A16/A17, issue
+ALE/DBIN, fetch display data, or generate mode-dependent character pins; those
+are separate bus and character-timing milestones.
 
 ## Compatibility profiles
 

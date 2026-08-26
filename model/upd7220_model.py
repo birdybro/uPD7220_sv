@@ -71,6 +71,13 @@ class VerticalPhase(str, Enum):
     ACTIVE = "active"
 
 
+class DisplayMode(IntEnum):
+    MIXED = 0
+    GRAPHICS = 1
+    CHARACTER = 2
+    INVALID = 3
+
+
 class CommandKind(str, Enum):
     RESET = "reset"
     SYNC = "sync"
@@ -215,6 +222,14 @@ class CursorCharacteristics:
     blink_rate: int | None = None
 
 
+@dataclass(frozen=True)
+class DisplayPartition:
+    start_address: int
+    line_count: int
+    image: bool
+    wide: bool
+
+
 class GdcModel:
     """Architectural state advanced one rising 2xWCLK edge at a time."""
 
@@ -284,6 +299,19 @@ class GdcModel:
         self._fifo: deque[FifoEntry] = deque()
         self.data_register: int | None = None
         self.read_refill_count = 0
+        self.display_partition_active = False
+        self.display_partition_index = 0
+        self.display_partition_count = 0
+        self.display_partition_line_index = 0
+        self.display_partition_line_count = 1
+        self.display_character_scanline = 0
+        self.display_partition_start_address = 0
+        self.display_line_base = 0
+        self.display_partition_image = False
+        self.display_partition_graphics = False
+        self.display_partition_wide = False
+        self.display_repeat = False
+        self.display_address_mode: DisplayMode | None = None
 
     @staticmethod
     def _word(value: int) -> int:
@@ -333,6 +361,20 @@ class GdcModel:
         self._fifo.clear()
         self.data_register = None
         self.read_refill_count = 0
+        self.display_partition_active = False
+        self.display_partition_index = 0
+        self.display_partition_count = 0
+        self.display_partition_line_index = 0
+        self.display_partition_line_count = 1
+        self.display_character_scanline = 0
+        self.display_partition_start_address = 0
+        self.display_line_base = 0
+        self.dad = 0
+        self.display_partition_image = False
+        self.display_partition_graphics = False
+        self.display_partition_wide = False
+        self.display_repeat = False
+        self.display_address_mode = None
 
         # RESET initializes internal timing counters, but the primary data sheet
         # explicitly says it does not modify already loaded parameters.
@@ -644,6 +686,145 @@ class GdcModel:
             raw_vbp = parameters[7] >> 2
             self.sync.vertical_back_porch = raw_vbp or 64
 
+    def _current_display_mode(self) -> DisplayMode:
+        if self.sync.display_mode is None:
+            raise PowerOnStateError("display mode has not been programmed")
+        return DisplayMode(self.sync.display_mode)
+
+    @staticmethod
+    def _partition_count(mode: DisplayMode) -> int:
+        if mode is DisplayMode.CHARACTER:
+            return 4
+        if mode in (DisplayMode.GRAPHICS, DisplayMode.MIXED):
+            return 2
+        return 0
+
+    def decode_display_partition(
+        self, index: int, mode: DisplayMode | None = None
+    ) -> DisplayPartition:
+        """Decode one four-byte RA descriptor without caching live PRAM.
+
+        The display sequencer calls this only when an area begins. This keeps
+        the model independent of the RTL's combinational decoder and captures
+        the documented ability to rewrite a later area during the current one.
+        """
+        selected_mode = self._current_display_mode() if mode is None else mode
+        count = self._partition_count(selected_mode)
+        if not 0 <= index < count:
+            raise ValueError("partition index is not present in this display mode")
+        first = index * 4
+        required_mask = 0x0F << first
+        if self.parameter_ram_known_mask & required_mask != required_mask:
+            raise PowerOnStateError("display partition contains unknown PRAM bytes")
+        p0, p1, p2, p3 = self.parameter_ram[first : first + 4]
+        if selected_mode is DisplayMode.CHARACTER:
+            start_address = ((p1 & 0x1F) << 8) | p0
+        else:
+            start_address = ((p2 & 0x03) << 16) | (p1 << 8) | p0
+        raw_lines = ((p3 & 0x3F) << 4) | (p2 >> 4)
+        return DisplayPartition(
+            start_address=start_address,
+            line_count=raw_lines or 1024,
+            image=bool(p3 & 0x40),
+            wide=bool(p3 & 0x80),
+        )
+
+    @staticmethod
+    def _normalize_display_address(address: int, mode: DisplayMode) -> int:
+        masks = {
+            DisplayMode.CHARACTER: 0x1FFF,
+            DisplayMode.MIXED: 0xFFFF,
+            DisplayMode.GRAPHICS: 0x3FFFF,
+        }
+        if mode not in masks:
+            return 0
+        return address & masks[mode]
+
+    def _load_display_partition(self, index: int, mode: DisplayMode) -> None:
+        descriptor = self.decode_display_partition(index, mode)
+        address = self._normalize_display_address(descriptor.start_address, mode)
+        self.display_partition_index = index
+        self.display_partition_line_index = 0
+        self.display_partition_line_count = descriptor.line_count
+        self.display_character_scanline = 0
+        self.display_partition_start_address = address
+        self.display_line_base = address
+        self.dad = address
+        self.display_partition_image = descriptor.image
+        self.display_partition_graphics = (
+            mode is DisplayMode.GRAPHICS
+            or (mode is DisplayMode.MIXED and descriptor.image)
+        )
+        self.display_partition_wide = descriptor.wide
+        self.display_repeat = False
+        self.display_address_mode = mode
+
+    def start_active_display(self) -> None:
+        """Fetch area zero at the transition into the active vertical interval."""
+        mode = self._current_display_mode()
+        self.display_partition_count = self._partition_count(mode)
+        if self.display_partition_count == 0:
+            self.display_partition_active = False
+            return
+        self._load_display_partition(0, mode)
+        self.display_partition_active = True
+
+    def start_display_line(self) -> None:
+        """Advance the partition/row state at the next active line boundary."""
+        if not self.display_partition_active or self.display_address_mode is None:
+            return
+        if (
+            self.display_partition_line_index + 1
+            >= self.display_partition_line_count
+        ):
+            index = self.display_partition_index + 1
+            if index >= self.display_partition_count:
+                index = 0
+            mode = self._current_display_mode()
+            self.display_partition_count = self._partition_count(mode)
+            self._load_display_partition(index, mode)
+            return
+
+        self.display_partition_line_index += 1
+        pitch = 0 if self.pitch is None else self.pitch
+        mode = self.display_address_mode
+        if self.display_partition_graphics:
+            self.display_line_base = self._normalize_display_address(
+                self.display_line_base + pitch, mode
+            )
+            self.dad = self.display_line_base
+            self.display_character_scanline = 0
+            return
+
+        lines_per_row = self.cursor_characteristics.lines_per_row or 1
+        if self.display_character_scanline + 1 >= lines_per_row:
+            self.display_line_base = self._normalize_display_address(
+                self.display_line_base + pitch, mode
+            )
+            self.dad = self.display_line_base
+            self.display_character_scanline = 0
+        else:
+            self.dad = self.display_line_base
+            self.display_character_scanline += 1
+
+    def advance_display_slot(self) -> None:
+        """Advance DAD for one display-memory access opportunity."""
+        if not self.display_partition_active or self.display_address_mode is None:
+            return
+        if self.display_partition_image and not self.display_repeat:
+            self.display_repeat = True
+            return
+        self.display_repeat = False
+        amount = 2 if self.display_partition_wide else 1
+        current_dad = 0 if self.dad is None else self.dad
+        self.dad = self._normalize_display_address(
+            current_dad + amount, self.display_address_mode
+        )
+
+    def end_active_display(self) -> None:
+        self.display_partition_active = False
+        self.display_repeat = False
+
     def begin_read_response(self) -> None:
         """Perform the FIFO turnaround caused by RDAT, CURD, or LPRD."""
         self._fifo.clear()
@@ -766,6 +947,16 @@ class GdcModel:
                 for index in range(16)
             ],
             "parameter_ram_known_mask": self.parameter_ram_known_mask,
+            "display_partition_active": self.display_partition_active,
+            "display_partition_index": self.display_partition_index,
+            "display_partition_count": self.display_partition_count,
+            "display_partition_line_index": self.display_partition_line_index,
+            "display_partition_line_count": self.display_partition_line_count,
+            "display_character_scanline": self.display_character_scanline,
+            "display_partition_start_address": self.display_partition_start_address,
+            "display_partition_image": self.display_partition_image,
+            "display_partition_graphics": self.display_partition_graphics,
+            "display_partition_wide": self.display_partition_wide,
             "memory_sha256": self.memory_sha256(),
         }
 

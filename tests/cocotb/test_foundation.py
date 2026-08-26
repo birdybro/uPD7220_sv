@@ -310,12 +310,12 @@ async def pitch_parameters_reach_the_retained_register(dut: object) -> None:
     await host_command_and_settle(dut, 0x00)
     await host_command_and_settle(dut, 0x47)
     await host_parameter_and_settle(dut, 0xA5)
-    assert int(dut.unused_pitch.value) == 0xA5
+    assert int(dut.display_pitch.value) == 0xA5
 
     await host_command_and_settle(dut, 0x00)
-    assert int(dut.unused_pitch.value) == 0xA5
+    assert int(dut.display_pitch.value) == 0xA5
 
     await host_command_and_settle(dut, 0x0E)
     await host_parameter_and_settle(dut, 0x02)
     await host_parameter_and_settle(dut, 0xFE)
-    assert int(dut.unused_pitch.value) == 0x00
+    assert int(dut.display_pitch.value) == 0x00

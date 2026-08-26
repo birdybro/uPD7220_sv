@@ -11,8 +11,11 @@ programming, START/BCTRL idle and blank control, falling-edge-aligned horizontal
 raster timing, noninterlaced vertical/master-sync timing, and the base eight-bit
 pitch register, plus CURS address/mask programming and five-byte CURD readback.
 The raw 16-byte Parameter RAM and its addressed sequential loading are also
-implemented. Accuracy claims are limited to primary-source requirements with
-executable tests.
+implemented. Its display-partition consumer decodes the character, graphics,
+and mixed-mode descriptor formats, sequences DAD across scanlines and area
+boundaries, and implements image/wide access stepping. Display-memory bus
+cycles and fetched pixel data remain later milestones. Accuracy claims are
+limited to primary-source requirements with executable tests.
 
 ## Reference corpus
 

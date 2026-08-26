@@ -109,8 +109,10 @@ PRAM opcode bits 3:0 select the initial RAM address SA. Each accepted parameter
 is written to `RA[SA + parameter_index]`; the command's decoded maximum prevents
 crossing RA15. A later command may interrupt the stream after any received byte,
 and all unwritten locations retain their previous contents. The raw byte store
-also survives functional RESET. Display-partition field decoding and use of
-RA8–RA15 as graphics patterns are separate later execution milestones.
+also survives functional RESET. The display-partition sequencer consumes these
+bytes only when an area begins, using four character descriptors or two
+graphics/mixed descriptors. RA8–RA15 remain raw pattern storage in graphics and
+mixed modes; their later drawing use is intentionally separate.
 
 ## Variant notes
 

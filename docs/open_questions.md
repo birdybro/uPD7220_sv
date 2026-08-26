@@ -52,3 +52,17 @@ The RTL returns zero in bits 7:2 so an FPGA implementation is deterministic.
 The independent model makes the same portable choice, but conformance tests
 mask those bits and the project does not claim that original 7220/82720 silicon
 necessarily returns zero.
+
+## OQ-005 — all-zero partition length encoding
+
+Figures 10 and 11 define each partition LEN as a ten-bit active-line count, and
+the manuals allow as many as 1024 active lines per field. The current corpus
+does not state in direct prose whether a raw LEN value of zero denotes zero
+lines or the unrepresentable maximum of 1024, as the AL synchronization field
+explicitly does.
+
+The implemented sequencer interprets zero as 1024. This is the only encoding
+that represents the documented maximum and avoids a zero-length area that could
+never become active, but it remains an **engineering inference**. Fixed RTL and
+model tests preserve this interpretation so a future manufacturer clarification
+or physical-device trace can change it deliberately rather than silently.

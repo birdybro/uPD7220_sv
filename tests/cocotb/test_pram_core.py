@@ -44,7 +44,7 @@ async def host_pram_stream_reaches_selected_internal_bytes(dut: object) -> None:
         await host.write_parameter(0x40 + value)
     await settle_pipeline(dut)
 
-    assert bytes_from_packed(int(dut.unused_parameter_ram.value)) == [
+    assert bytes_from_packed(int(dut.display_parameter_ram.value)) == [
         0x40 + value for value in range(16)
     ]
     assert int(dut.unused_pram_programmed_mask.value) == 0xFFFF
@@ -64,8 +64,8 @@ async def host_interruption_and_reset_retain_unaffected_pram_bytes(dut: object) 
     await settle_pipeline(dut)
 
     expected = [0xA5] * 5 + [0x11, 0x22, 0x33] + [0xA5] * 8
-    assert bytes_from_packed(int(dut.unused_parameter_ram.value)) == expected
+    assert bytes_from_packed(int(dut.display_parameter_ram.value)) == expected
 
     await host.write_command(0x00)
     await settle_pipeline(dut)
-    assert bytes_from_packed(int(dut.unused_parameter_ram.value)) == expected
+    assert bytes_from_packed(int(dut.display_parameter_ram.value)) == expected

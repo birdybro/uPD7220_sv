@@ -203,6 +203,30 @@ horizontal timing block samples the combined request on the following falling
 BCTRL DE=1 while idle therefore leaves BLANK asserted; START is the only base
 command that exits idle. RESET re-enters idle from every display-control state.
 
+## Display-partition and DAD edge table
+
+Intel application-manual section 4.24.16 establishes that the first area's
+four-byte descriptor has already been fetched during VBP, while a later area is
+not needed until its boundary. The portable RTL represents this at the first
+rising 2xWCLK edge that observes entry into the active vertical interval and at
+the rising edge following each active-line boundary:
+
+| Observed event | Latched/updated state |
+|---|---|
+| active-line rising transition | fetch area 0 SAD/LEN/IM/WD; load DAD and saved line base from SAD |
+| next active line within the same area | increment line count; reset DAD to saved line base plus pitch for a graphics row |
+| character scanline below LR | increment line counter; reset DAD to the unchanged character-row base |
+| character scanline reaching LR | clear line counter; advance saved base and DAD by pitch |
+| line count reaches the latched LEN | fetch the next area's four live PRAM bytes and load its SAD into DAD |
+| active display slot, IM=0 | increment DAD by one, or two when WD=1 |
+| two active display slots, IM=1 | hold DAD on the first and apply the one/two-word increment on the second |
+
+The line count is latched with its descriptor, so rewriting the current LEN
+cannot shorten or extend the area in progress. The independent core test checks
+these events against the falling-edge raster generator and its following rising
+partition edge. Physical ALE/DBIN transactions remain pending and are not
+implied by this architectural DAD schedule.
+
 ## Display-memory electrical timing (base 82720)
 
 The following page-27 values are recorded now for the memory-cycle milestones;
