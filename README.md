@@ -9,8 +9,9 @@ the physical/split-bus wrappers, asynchronous host transfers, the half-duplex
 FIFO, base opcode parsing, dedicated RESET, and RESET/SYNC/VSYNC register
 programming, START/BCTRL idle and blank control, falling-edge-aligned horizontal
 raster timing, noninterlaced vertical/master-sync timing, and the base eight-bit
-pitch register. Accuracy claims are limited to primary-source requirements with
-executable tests.
+pitch register, plus CURS address/mask programming and five-byte CURD readback.
+Accuracy claims are limited to primary-source requirements with executable
+tests.
 
 ## Reference corpus
 

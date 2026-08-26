@@ -150,6 +150,27 @@ The explicit 7220A PH ninth bit is not mixed into the base behavior. Its
 evidence-backed location is SYNC/RESET P5 bit 6 and will be enabled with
 variant-specific tests in the A-profile milestone.
 
+## Cursor address and CURD response
+
+`upd7220_cursor` owns the 18-bit Execute Address and the shared 16-bit mask.
+CURS P1/P2 update the low and middle EAD bytes independently. Graphics-mode P3
+loads EAD bits 17:16 and expands its four-bit dAD field to a one-of-16 mask.
+This incremental loading preserves the documented optional character-mode
+two-byte prefix behavior. Functional RESET aborts a response without erasing
+the programmer-loaded address or mask.
+
+CURD snapshots EAD and mask on its registered command-start event and requests
+FIFO read turnaround at that same command boundary. Its held-valid producer
+emits the five Figure 28 bytes and keeps a byte stable whenever the FIFO's ring
+RAM read port temporarily backpressures it. The FIFO then applies its existing
+four-edge transfer into the separate host data register. A command written
+during this response immediately returns the FIFO to write mode and discards
+all unread bytes.
+
+CURD P3 bits 7:2 are undefined on the device. The synthesizable implementation
+uses zero for deterministic FPGA behavior, but no compatibility claim depends
+on those bits.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:

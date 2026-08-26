@@ -162,7 +162,10 @@ module upd7220_fifo (
     endproperty
     property p_response_honors_backpressure;
         @(posedge clk_2x) disable iff (!integration_reset_n || fifo_reset)
-            response_valid |-> response_ready;
+            (response_valid && !response_ready) |=>
+                (!read_direction_q || turn_to_read
+                 || (host_write_valid && host_write_is_command)
+                 || (response_valid && $stable(response_data)));
     endproperty
     property p_parameter_cannot_abort_read_mode;
         @(posedge clk_2x) disable iff (!integration_reset_n || fifo_reset)
@@ -176,7 +179,7 @@ module upd7220_fifo (
     assert property (p_no_host_read_underflow)
         else $error("host read occurred without DATA READY");
     assert property (p_response_honors_backpressure)
-        else $error("response producer ignored FIFO backpressure");
+        else $error("response producer changed a backpressured byte");
     assert property (p_parameter_cannot_abort_read_mode)
         else $error("only a command byte can terminate FIFO read mode");
 `endif

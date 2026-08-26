@@ -524,6 +524,25 @@ class GdcModel:
                 self.display_enabled = True
             elif decoded.kind is CommandKind.BCTRL:
                 self.display_enabled = bool(entry.value & 1)
+            elif decoded.kind is CommandKind.CURD:
+                if self.ead is None or self.mask is None:
+                    raise PowerOnStateError("CURD requires programmed cursor state")
+                response = (
+                    self.ead & BYTE_MASK,
+                    (self.ead >> 8) & BYTE_MASK,
+                    (self.ead >> 16) & 0x03,
+                    self.mask & BYTE_MASK,
+                    (self.mask >> 8) & BYTE_MASK,
+                )
+                self.begin_read_response()
+                for value in response:
+                    self.response_write(value)
+                return ParserEvent(
+                    started=decoded.kind,
+                    started_opcode=entry.value,
+                    completed_opcode=entry.value,
+                    interrupted_opcode=interrupted,
+                )
             if decoded.parameter_limit == 0:
                 self.command_state = CommandState.IDLE
                 self.active_command_kind = None
@@ -555,6 +574,18 @@ class GdcModel:
             self.load_sync_parameter(index, entry.value)
         elif kind is CommandKind.PITCH and index == 0:
             self.pitch = entry.value
+        elif kind is CommandKind.CURS:
+            if index == 0:
+                current = 0 if self.ead is None else self.ead
+                self.ead = (current & 0x3FF00) | entry.value
+            elif index == 1:
+                current = 0 if self.ead is None else self.ead
+                self.ead = (current & 0x300FF) | (entry.value << 8)
+            elif index == 2:
+                current = 0 if self.ead is None else self.ead
+                self.ead = (current & 0x0FFFF) | ((entry.value & 0x03) << 16)
+                self.dad_dot = entry.value >> 4
+                self.mask = 1 << self.dad_dot
         if self.active_repeats_parameter_group:
             self.next_parameter_index = (index + 1) % self.active_parameter_limit
             return ParserEvent(parameter=parameter)

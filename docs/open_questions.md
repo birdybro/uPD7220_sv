@@ -41,3 +41,14 @@ The implemented register behavior follows that width evidence and never aliases
 zero pitch is not described; it remains undefined until primary evidence or a
 physical trace establishes whether it acts as zero or has another internal
 interpretation.
+
+## OQ-004 — undefined high bits in CURD P3
+
+Intel preliminary data-sheet Figure 28 defines only bits 1:0 of CURD response
+byte P3 as EAD bits 17:16 and marks bits 7:2 `X`/undefined. No primary source in
+the current corpus assigns stable silicon values to those upper bits.
+
+The RTL returns zero in bits 7:2 so an FPGA implementation is deterministic.
+The independent model makes the same portable choice, but conformance tests
+mask those bits and the project does not claim that original 7220/82720 silicon
+necessarily returns zero.

@@ -2,9 +2,9 @@
 
 The verification environment drives the Python architectural model and
 SystemVerilog RTL with identical deterministic stimuli. Its current scope
-covers reset, FIFO/parser/register behavior, horizontal raster timing, and
-noninterlaced vertical/master-sync pin timing. Later command, memory, drawing,
-DMA, interlace, and slave-sync layers remain pending.
+covers reset, FIFO/parser/register behavior including CURS/CURD, horizontal
+raster timing, and noninterlaced vertical/master-sync pin timing. Later command,
+memory, drawing, DMA, interlace, and slave-sync layers remain pending.
 
 ## Tool bootstrap
 
@@ -49,6 +49,14 @@ Pitch tests exhaust representative literal boundaries (`00h`, `01h`, `7Fh`,
 `FEh`, and `FFh`), RESET/SYNC-derived loads including AW=256 wrap, retention
 across RESET without optional P2, unrelated-parameter isolation, and the full
 host/FIFO/parser/register path.
+
+Cursor tests cover EAD zero and 18-bit boundaries, every significant P3 field,
+dAD values 0, 7, 10, and 15, one-hot mask expansion, character-mode two-byte
+prefix interruption, RESET retention, CURD snapshot isolation, producer
+backpressure, all five returned bytes, four-edge host-data-register refill, and
+new-command abortion of unread response bytes. The integrated test drives only
+the asynchronous host pins and checks the documented byte order via status
+polling and FIFO reads.
 
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent

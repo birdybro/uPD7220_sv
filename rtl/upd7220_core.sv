@@ -52,7 +52,10 @@ module upd7220_core #(
     logic       command_pop;
     logic       unused_fifo_read_direction;
     logic [4:0] unused_fifo_occupancy;
-    logic       unused_response_ready;
+    logic       fifo_response_ready;
+    logic       cursor_turn_to_read;
+    logic       cursor_response_valid;
+    logic [7:0] cursor_response_data;
     logic       command_start;
     logic       unused_command_known;
     upd7220_pkg::command_kind_t started_kind;
@@ -107,6 +110,9 @@ module upd7220_core #(
     upd7220_pkg::vertical_phase_t unused_vertical_phase;
     logic [10:0] unused_vertical_line_index;
     logic [8:0] unused_pitch;
+    logic [17:0] unused_ead;
+    logic [3:0] unused_dot_address;
+    logic [15:0] unused_mask;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -115,7 +121,6 @@ module upd7220_core #(
         lpen,
         unused_fifo_read_direction,
         unused_fifo_occupancy,
-        unused_response_ready,
         unused_command_known,
         unused_started_parameter_limit,
         unused_parameter_opcode,
@@ -150,7 +155,10 @@ module upd7220_core #(
         unused_field_start,
         unused_vertical_phase,
         unused_vertical_line_index,
-        unused_pitch
+        unused_pitch,
+        unused_ead,
+        unused_dot_address,
+        unused_mask
     };
 
     assign status_value = device_initialized_q
@@ -188,10 +196,10 @@ module upd7220_core #(
         .command_is_command,
         .command_data,
         .command_pop,
-        .turn_to_read              (1'b0),
-        .response_valid            (1'b0),
-        .response_data             (8'h00),
-        .response_ready            (unused_response_ready),
+        .turn_to_read              (cursor_turn_to_read),
+        .response_valid            (cursor_response_valid),
+        .response_data             (cursor_response_data),
+        .response_ready            (fifo_response_ready),
         .host_read_data            (fifo_read_data),
         .fifo_empty,
         .fifo_full,
@@ -278,6 +286,25 @@ module upd7220_core #(
         .parameter_index,
         .parameter_data,
         .pitch                      (unused_pitch)
+    );
+
+    upd7220_cursor cursor_registers (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .command_start,
+        .started_kind,
+        .parameter_valid,
+        .parameter_kind,
+        .parameter_index,
+        .parameter_data,
+        .turn_to_read               (cursor_turn_to_read),
+        .response_valid             (cursor_response_valid),
+        .response_data              (cursor_response_data),
+        .response_ready             (fifo_response_ready),
+        .ead                         (unused_ead),
+        .dot_address                 (unused_dot_address),
+        .mask                        (unused_mask)
     );
 
     upd7220_video_timing video_timing (

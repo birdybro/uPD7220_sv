@@ -28,7 +28,7 @@ read-modify-write modifier, `DE` is display enable, `M` selects sync master, and
 | START | `6B` | 0 | Exit idle and force display enable | Completes with opcode | Control effect unit verified |
 | BCTRL | `0C`, `0D` (`0000110DE`) | 0 | Change display enable without leaving idle | Completes with opcode | Control effect unit verified |
 | ZOOM | `46` | 1 | Display and graphics-character zoom | Completes after P1 | Decode verified |
-| CURS | `49` | 2 in character mode; 3 in graphics mode | EAD and, for graphics, dAD/mask | Parser accepts a three-byte maximum; a new command legally terminates after P2 | Decode verified |
+| CURS | `49` | 2 in character mode; 3 in graphics mode | EAD and, for graphics, dAD expanded to a one-of-16 mask | Parser accepts a three-byte maximum; a new command legally terminates after P2 | Register effect unit verified |
 | PRAM | `70`–`7F` (`0111SA`) | 1 through `16-SA` | Sequential Parameter RAM locations SA through 15 | Ends at location 15 or when a new command arrives | Decode verified |
 | PITCH | `47` | 1 | Load literal base 8-bit display-memory horizontal pitch | Completes after P1 | Register effect unit verified |
 | WDAT | `001TT0MM` | Repeated groups of 2 for word or 1 for byte | Pattern/data input for display-memory RMW writes | Remains active for further groups until a new command | Decode verified |
@@ -37,7 +37,7 @@ read-modify-write modifier, `DE` is display enable, `M` selects sync master, and
 | FIGD | `6C` | 0 | Start figure drawing | Completes with opcode | Decode verified |
 | GCHRD | `68` | 0 | Start graphics-character drawing/area fill | Completes with opcode | Decode verified |
 | RDAT | `101TT0MM` | 0 | Start display-memory read | Reverses FIFO direction; queued following bytes are discarded | Decode verified |
-| CURD | `E0` | 0 | Return three bytes of EAD/dAD | Reverses FIFO direction | Decode verified |
+| CURD | `E0` | 0 | Return five bytes: EAD low, middle, and high fields, then dAD/mask low and high | Reverses FIFO direction after interpretation; response is a command-boundary snapshot | Register, FIFO, and host readback unit verified |
 | LPRD | `C0` | 0 | Return three bytes of captured LAD | Reverses FIFO direction and clears light-pen status at the documented transfer point | Decode verified |
 | DMAR | `101TT1MM` | 0 | Start DMA display-memory read | DMA bypasses host FIFO | Decode verified |
 | DMAW | `001TT1MM` | 0 | Start DMA display-memory write/RMW | DMA bypasses host FIFO | Decode verified |
@@ -89,6 +89,21 @@ also loads pitch through the eight-bit `(P2 + 2)` result. Thus AW=256 is retaine
 as a nine-bit active display count while the base pitch register contains
 `00h`; `00h` is not silently decoded as 256. The evidence/inference boundary
 for that zero case is recorded in `docs/open_questions.md`.
+
+CURS P1 and P2 load EAD bits 7:0 and 15:8. Graphics-mode P3 encodes dAD in
+bits 7:4, fixed zeros in bits 3:2, and EAD bits 17:16 in bits 1:0. The four-bit
+dAD is expanded to the shared one-of-16 mask register. Character-mode software
+may terminate CURS after P2; doing so leaves the prior high EAD bits and mask
+unchanged.
+
+CURD returns five bytes, not three: P1/P2 are EAD low/middle, P3 contains EAD
+bits 17:16 in its low two bits, and P4/P5 are the low/high bytes of the current
+16-bit mask. Intel Figure 28 marks P3 bits 7:2 undefined. This implementation
+drives them as zero for deterministic synthesis, while tests and compatibility
+claims constrain only the documented low two bits. CURD snapshots EAD and mask
+when the command processor interprets the opcode, turns the shared FIFO to read
+mode, and honors the existing four-2xWCLK transfer delay into the separate host
+data register. A later command discards all unread response bytes.
 
 ## Variant notes
 
