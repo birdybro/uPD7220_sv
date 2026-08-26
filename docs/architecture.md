@@ -85,6 +85,21 @@ only after this path runs. Parameter/register storage is not globally cleared;
 the base manuals explicitly require previously loaded parameters to survive
 unless optional RESET parameters overwrite the sync-format fields.
 
+## SYNC and VSYNC registers
+
+`upd7220_sync_control` retains the eight raw RESET/SYNC parameter bytes and
+provides decoded count views without losing their original encodings. Received
+prefix bytes update individually; fields not reached before a new command keep
+their prior values. The block decodes display/framing modes, refresh and drawing
+window selection, AW/pitch, HS, VS, HFP, HBP, VFP, AL, and VBP. Vertical
+all-zero fields expand to their documented power-of-two maximum.
+
+SYNC's opcode DE bit updates the requested display-enable state without
+entering idle or clearing other state. VSYNC's M bit directly controls whether
+the physical V/EXT SYNC pin is driven (master) or released as an input (slave).
+Raster waveform generation on that pin belongs to the vertical timing block and
+is not implemented by this register milestone.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:

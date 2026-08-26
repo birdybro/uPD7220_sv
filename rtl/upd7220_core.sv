@@ -53,15 +53,15 @@ module upd7220_core #(
     logic       unused_fifo_read_direction;
     logic [4:0] unused_fifo_occupancy;
     logic       unused_response_ready;
-    logic       unused_command_start;
+    logic       command_start;
     logic       unused_command_known;
-    upd7220_pkg::command_kind_t unused_started_kind;
-    logic [7:0] unused_started_opcode;
+    upd7220_pkg::command_kind_t started_kind;
+    logic [7:0] started_opcode;
     logic [4:0] unused_started_parameter_limit;
-    logic       unused_parameter_valid;
-    logic [7:0] unused_parameter_data;
-    logic [3:0] unused_parameter_index;
-    upd7220_pkg::command_kind_t unused_parameter_kind;
+    logic       parameter_valid;
+    logic [7:0] parameter_data;
+    logic [3:0] parameter_index;
+    upd7220_pkg::command_kind_t parameter_kind;
     logic [7:0] unused_parameter_opcode;
     logic       unused_command_complete;
     logic [7:0] unused_completed_opcode;
@@ -72,6 +72,30 @@ module upd7220_core #(
     upd7220_pkg::command_kind_t unused_active_kind;
     logic [7:0] unused_active_opcode;
     logic [3:0] unused_next_parameter_index;
+    logic       sync_display_enable;
+    logic       sync_master;
+    logic [7:0] unused_sync_programmed_mask;
+    logic [7:0] unused_sync_p1;
+    logic [7:0] unused_sync_p2;
+    logic [7:0] unused_sync_p3;
+    logic [7:0] unused_sync_p4;
+    logic [7:0] unused_sync_p5;
+    logic [7:0] unused_sync_p6;
+    logic [7:0] unused_sync_p7;
+    logic [7:0] unused_sync_p8;
+    upd7220_pkg::display_mode_t unused_display_mode;
+    upd7220_pkg::framing_mode_t unused_framing_mode;
+    logic       unused_refresh_enable;
+    logic       unused_drawing_during_retrace_only;
+    logic [8:0] unused_active_words;
+    logic [8:0] unused_base_pitch;
+    logic [5:0] unused_hsync_width;
+    logic [5:0] unused_vsync_width;
+    logic [6:0] unused_horizontal_front_porch;
+    logic [6:0] unused_horizontal_back_porch;
+    logic [6:0] unused_vertical_front_porch;
+    logic [10:0] unused_active_lines;
+    logic [6:0] unused_vertical_back_porch;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -81,15 +105,8 @@ module upd7220_core #(
         unused_fifo_read_direction,
         unused_fifo_occupancy,
         unused_response_ready,
-        unused_command_start,
         unused_command_known,
-        unused_started_kind,
-        unused_started_opcode,
         unused_started_parameter_limit,
-        unused_parameter_valid,
-        unused_parameter_data,
-        unused_parameter_index,
-        unused_parameter_kind,
         unused_parameter_opcode,
         unused_command_complete,
         unused_completed_opcode,
@@ -100,12 +117,36 @@ module upd7220_core #(
         unused_active_kind,
         unused_active_opcode,
         unused_next_parameter_index,
+        sync_display_enable,
+        unused_sync_programmed_mask,
+        unused_sync_p1,
+        unused_sync_p2,
+        unused_sync_p3,
+        unused_sync_p4,
+        unused_sync_p5,
+        unused_sync_p6,
+        unused_sync_p7,
+        unused_sync_p8,
+        unused_display_mode,
+        unused_framing_mode,
+        unused_refresh_enable,
+        unused_drawing_during_retrace_only,
+        unused_active_words,
+        unused_base_pitch,
+        unused_hsync_width,
+        unused_vsync_width,
+        unused_horizontal_front_porch,
+        unused_horizontal_back_porch,
+        unused_vertical_front_porch,
+        unused_active_lines,
+        unused_vertical_back_porch,
         idle_q
     };
 
     assign status_value = device_initialized_q
         ? {5'b0, fifo_empty, fifo_full, fifo_data_ready}
         : 8'hxx;
+    assign v_ext_sync_oe = sync_master;
 
     upd7220_host_if host_if (
         .clk_2x,
@@ -158,15 +199,15 @@ module upd7220_core #(
         .fifo_is_command           (command_is_command),
         .fifo_data                 (command_data),
         .fifo_pop                  (command_pop),
-        .command_start             (unused_command_start),
+        .command_start,
         .command_known             (unused_command_known),
-        .started_kind              (unused_started_kind),
-        .started_opcode            (unused_started_opcode),
+        .started_kind,
+        .started_opcode,
         .started_parameter_limit   (unused_started_parameter_limit),
-        .parameter_valid           (unused_parameter_valid),
-        .parameter_data            (unused_parameter_data),
-        .parameter_index           (unused_parameter_index),
-        .parameter_kind            (unused_parameter_kind),
+        .parameter_valid,
+        .parameter_data,
+        .parameter_index,
+        .parameter_kind,
         .parameter_opcode          (unused_parameter_opcode),
         .command_complete          (unused_command_complete),
         .completed_opcode          (unused_completed_opcode),
@@ -177,6 +218,45 @@ module upd7220_core #(
         .active_kind               (unused_active_kind),
         .active_opcode             (unused_active_opcode),
         .next_parameter_index      (unused_next_parameter_index)
+    );
+
+    upd7220_sync_control #(
+        .GDC_VARIANT
+    ) sync_control (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .command_start,
+        .started_kind,
+        .started_opcode,
+        .parameter_valid,
+        .parameter_kind,
+        .parameter_index,
+        .parameter_data,
+        .display_enable            (sync_display_enable),
+        .sync_master,
+        .programmed_mask           (unused_sync_programmed_mask),
+        .sync_p1                   (unused_sync_p1),
+        .sync_p2                   (unused_sync_p2),
+        .sync_p3                   (unused_sync_p3),
+        .sync_p4                   (unused_sync_p4),
+        .sync_p5                   (unused_sync_p5),
+        .sync_p6                   (unused_sync_p6),
+        .sync_p7                   (unused_sync_p7),
+        .sync_p8                   (unused_sync_p8),
+        .display_mode              (unused_display_mode),
+        .framing_mode              (unused_framing_mode),
+        .refresh_enable            (unused_refresh_enable),
+        .drawing_during_retrace_only (unused_drawing_during_retrace_only),
+        .active_words              (unused_active_words),
+        .base_pitch                (unused_base_pitch),
+        .hsync_width               (unused_hsync_width),
+        .vsync_width               (unused_vsync_width),
+        .horizontal_front_porch    (unused_horizontal_front_porch),
+        .horizontal_back_porch     (unused_horizontal_back_porch),
+        .vertical_front_porch      (unused_vertical_front_porch),
+        .active_lines              (unused_active_lines),
+        .vertical_back_porch       (unused_vertical_back_porch)
     );
 
     generate
@@ -196,7 +276,6 @@ module upd7220_core #(
             mem_dbin_n   <= 1'b1;
             hsync        <= 1'b0;
             v_ext_sync_o <= 1'b0;
-            v_ext_sync_oe <= 1'b0;
             blank        <= 1'b1;
             mem_ale      <= 1'b1;
             drq          <= 1'b0;
@@ -212,7 +291,6 @@ module upd7220_core #(
             mem_dbin_n           <= 1'b1;
             hsync                <= 1'b0;
             v_ext_sync_o         <= 1'b0;
-            v_ext_sync_oe        <= 1'b0;
             blank                <= 1'b1;
             mem_ale              <= 1'b1;
             drq                  <= 1'b0;

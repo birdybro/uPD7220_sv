@@ -100,6 +100,33 @@ FIFO EMPTY=1, FIFO FULL=0, DATA READY=0, and all implemented activity flags are
 zero. The display is blanked, idle mode is set, memory buses are released, DBIN
 is inactive, ALE is high, DRQ is low, and optional RESET parameters may follow.
 
+## RESET/SYNC timing-register encodings
+
+The eight parameter bytes update their destinations as the command processor
+consumes them; a later command terminates the sequence and unreceived registers
+retain their earlier values. Decoded counts are:
+
+| Field | Encoding | Decoded count |
+|---|---|---|
+| AW | P2[7:0] | raw + 2 display words; valid programmed range is even 2–256 |
+| HS | P3[4:0] | raw + 1 word times |
+| VS | `{P4[1:0],P3[7:5]}` | raw lines, with zero meaning 32 |
+| HFP | P4[7:2] | raw + 1 word times |
+| HBP | P5[5:0] | raw + 1 word times |
+| VFP | P6[5:0] | raw lines, with zero meaning 64 |
+| AL | `{P8[1:0],P7[7:0]}` | raw lines, with zero meaning 1024 |
+| VBP | P8[7:2] | raw lines, with zero meaning 64 |
+
+P1 uses C=P1[5] and G=P1[1] for mixed/graphics/character mode; I=P1[3]
+and S=P1[0] select framing; D=P1[2] enables refresh; F=P1[4] restricts
+drawing to retrace when set. Exact raster counter load/edge behavior follows in
+the horizontal and vertical timing milestones.
+
+SYNC opcode bit DE changes requested display enable. VSYNC opcode bit M changes
+the V/EXT SYNC pin direction: M=0 releases it for slave input and M=1 drives it
+for master output. The direction change is end-to-end tested through the host
+interface; the vertical waveform itself is pending.
+
 ## Display-memory electrical timing (base 82720)
 
 The following page-27 values are recorded now for the memory-cycle milestones;

@@ -3,9 +3,12 @@
 Independent SystemVerilog reimplementation of the NEC μPD7220 and Intel
 82720 Graphics Display Controller.
 
-This project is at the research/bootstrap stage. It does **not** yet claim
-functional or cycle accuracy. Accuracy claims will be added only as the
-corresponding primary-source requirements and executable tests are completed.
+This project is under active incremental development. It does **not** yet claim
+complete functional or cycle accuracy. The implemented scope currently covers
+the physical/split-bus wrappers, asynchronous host transfers, the half-duplex
+FIFO, base opcode parsing, dedicated RESET, and RESET/SYNC/VSYNC register
+programming. Accuracy claims are limited to primary-source requirements with
+executable tests.
 
 ## Reference corpus
 
@@ -28,9 +31,9 @@ make lint
 make test
 ```
 
-`make test` currently runs Python unit tests and a Verilator+cocotb RTL smoke
-simulation. Simulation output, seed-specific build files, and waveforms are
-written below `build/`. Set a deterministic seed with `GDC_SEED`, for example:
+`make test` runs Python/model unit tests and all current Verilator+cocotb RTL
+suites. Simulation output, seed-specific build files, and waveforms are written
+below `build/`. Set a deterministic seed with `GDC_SEED`, for example:
 
 ```sh
 make test-random GDC_SEED=29216
@@ -49,6 +52,6 @@ primary-source-backed tests.
 
 [`rtl/upd7220.sv`](rtl/upd7220.sv) is the physical-bus wrapper. The split-bus
 [`rtl/upd7220_core.sv`](rtl/upd7220_core.sv) is intended for FPGA integration and
-verification. The core currently implements only clock/reset and safe bus-idle
-foundations; no command compatibility is claimed yet. See
-[`docs/architecture.md`](docs/architecture.md).
+verification. See [`docs/architecture.md`](docs/architecture.md),
+[`docs/commands.md`](docs/commands.md), and [`docs/timing.md`](docs/timing.md)
+for the exact implemented boundary and remaining verification work.

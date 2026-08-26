@@ -222,6 +222,9 @@ class GdcModel:
         self.parameter_ram = bytearray(16)
         self.parameter_ram_known = False
         self.sync = SyncRegisters()
+        self.sync_parameter_bytes = bytearray(8)
+        self.sync_parameter_known_mask = 0
+        self.sync_master: bool | None = None
         self.figure = FigureRegisters()
         self.cursor_characteristics = CursorCharacteristics()
         self.ead: int | None = None
@@ -381,6 +384,10 @@ class GdcModel:
             self.next_parameter_index = 0
             self.active_parameter_limit = decoded.parameter_limit
             self.active_repeats_parameter_group = decoded.repeats_parameter_group
+            if decoded.kind is CommandKind.SYNC:
+                self.display_enabled = bool(entry.value & 1)
+            elif decoded.kind is CommandKind.VSYNC:
+                self.sync_master = bool(entry.value & 1)
             if decoded.parameter_limit == 0:
                 self.command_state = CommandState.IDLE
                 self.active_command_kind = None
@@ -408,6 +415,8 @@ class GdcModel:
         opcode = self.active_command_opcode
         index = self.next_parameter_index
         parameter = (kind, index, entry.value)
+        if kind in (CommandKind.RESET, CommandKind.SYNC):
+            self.load_sync_parameter(index, entry.value)
         if self.active_repeats_parameter_group:
             self.next_parameter_index = (index + 1) % self.active_parameter_limit
             return ParserEvent(parameter=parameter)
@@ -420,6 +429,45 @@ class GdcModel:
             self.next_parameter_index = 0
             return ParserEvent(parameter=parameter, completed_opcode=opcode)
         return ParserEvent(parameter=parameter)
+
+    def load_sync_parameter(self, index: int, value: int) -> None:
+        """Load one RESET/SYNC byte and update fields whose bytes are known."""
+        if not 0 <= index < 8:
+            raise ValueError("SYNC parameter index must be in P1 through P8")
+        if not 0 <= value <= BYTE_MASK:
+            raise ValueError("SYNC parameter exceeds eight bits")
+        self.sync_parameter_bytes[index] = value
+        self.sync_parameter_known_mask |= 1 << index
+        parameters = self.sync_parameter_bytes
+        known = self.sync_parameter_known_mask
+
+        if known & 0x01:
+            p1 = parameters[0]
+            self.sync.display_mode = ((p1 >> 4) & 0x02) | ((p1 >> 1) & 0x01)
+            self.sync.framing_mode = ((p1 >> 2) & 0x02) | (p1 & 0x01)
+            self.sync.dynamic_refresh = bool(p1 & 0x04)
+            self.sync.retrace_only_drawing = bool(p1 & 0x10)
+        if known & 0x02:
+            self.sync.active_words = parameters[1] + 2
+            self.pitch = self.sync.active_words
+        if known & 0x04:
+            self.sync.hsync_width = (parameters[2] & 0x1F) + 1
+        if (known & 0x0C) == 0x0C:
+            raw_vsync = ((parameters[3] & 0x03) << 3) | (parameters[2] >> 5)
+            self.sync.vsync_width = raw_vsync or 32
+        if known & 0x08:
+            self.sync.horizontal_front_porch = (parameters[3] >> 2) + 1
+        if known & 0x10:
+            self.sync.horizontal_back_porch = (parameters[4] & 0x3F) + 1
+        if known & 0x20:
+            raw_vfp = parameters[5] & 0x3F
+            self.sync.vertical_front_porch = raw_vfp or 64
+        if (known & 0xC0) == 0xC0:
+            raw_lines = ((parameters[7] & 0x03) << 8) | parameters[6]
+            self.sync.active_lines = raw_lines or 1024
+        if known & 0x80:
+            raw_vbp = parameters[7] >> 2
+            self.sync.vertical_back_porch = raw_vbp or 64
 
     def begin_read_response(self) -> None:
         """Perform the FIFO turnaround caused by RDAT, CURD, or LPRD."""
@@ -512,6 +560,13 @@ class GdcModel:
             "display_zoom": self.display_zoom,
             "graphics_character_zoom": self.graphics_character_zoom,
             "sync": asdict(self.sync),
+            "sync_parameter_bytes": [
+                self.sync_parameter_bytes[index]
+                if self.sync_parameter_known_mask & (1 << index)
+                else None
+                for index in range(8)
+            ],
+            "sync_master": self.sync_master,
             "figure": asdict(self.figure),
             "cursor_characteristics": asdict(self.cursor_characteristics),
             "parameter_ram": self.parameter_ram.hex() if self.parameter_ram_known else None,

@@ -32,6 +32,20 @@ package upd7220_pkg;
         CMD_DMAW    = 5'd20
     } command_kind_t;
 
+    typedef enum logic [1:0] {
+        DISPLAY_MIXED     = 2'b00,
+        DISPLAY_GRAPHICS  = 2'b01,
+        DISPLAY_CHARACTER = 2'b10,
+        DISPLAY_INVALID   = 2'b11
+    } display_mode_t;
+
+    typedef enum logic [1:0] {
+        FRAME_NONINTERLACED = 2'b00,
+        FRAME_INVALID       = 2'b01,
+        FRAME_REPEAT_FIELD  = 2'b10,
+        FRAME_INTERLACED    = 2'b11
+    } framing_mode_t;
+
     localparam int unsigned HOST_DATA_WIDTH = 8;
     localparam int unsigned MEM_DATA_WIDTH = 16;
     localparam int unsigned FIFO_DEPTH = 16;
