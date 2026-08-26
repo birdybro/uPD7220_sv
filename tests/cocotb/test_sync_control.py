@@ -68,7 +68,7 @@ def raw_parameters(dut: object) -> tuple[int, ...]:
 
 
 @cocotb.test()
-async def sync_decodes_all_fields_and_base_pitch(dut: object) -> None:
+async def sync_decodes_all_fields(dut: object) -> None:
     await start_and_reset(dut)
     await program_sync(dut, 0x0F, SYNC_VECTOR)
 
@@ -80,7 +80,6 @@ async def sync_decodes_all_fields_and_base_pitch(dut: object) -> None:
     assert int(dut.refresh_enable.value) == 1
     assert int(dut.drawing_during_retrace_only.value) == 1
     assert int(dut.active_words.value) == 256
-    assert int(dut.base_pitch.value) == 256
     assert int(dut.hsync_width.value) == 27
     assert int(dut.vsync_width.value) == 21
     assert int(dut.horizontal_front_porch.value) == 43

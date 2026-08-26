@@ -45,6 +45,11 @@ Display-control tests separately verify the enable request and idle latch:
 BCTRL/SYNC cannot leave idle, START both enables and leaves idle, pin blanking
 samples the combined state on a falling edge, and RESET restores idle.
 
+Pitch tests exhaust representative literal boundaries (`00h`, `01h`, `7Fh`,
+`FEh`, and `FFh`), RESET/SYNC-derived loads including AW=256 wrap, retention
+across RESET without optional P2, unrelated-parameter isolation, and the full
+host/FIFO/parser/register path.
+
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent
 of the physical GDC wrapper.

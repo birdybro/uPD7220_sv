@@ -28,7 +28,7 @@ def test_sync_loads_every_field_and_base_pitch() -> None:
     assert model.sync.dynamic_refresh
     assert model.sync.retrace_only_drawing
     assert model.sync.active_words == 256
-    assert model.pitch == 256
+    assert model.pitch == 0
     assert model.sync.hsync_width == 27
     assert model.sync.vsync_width == 21
     assert model.sync.horizontal_front_porch == 43

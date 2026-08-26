@@ -27,3 +27,17 @@ state in equally direct language which internal vertical interval owns the
 extra line. Interlace implementation must preserve the documented frame total
 and pin edges while treating interval ownership as unresolved until further
 evidence is found.
+
+## OQ-003 — semantic use of base pitch `00h`
+
+The base command figure exposes an eight-bit literal PITCH parameter without a
+special-zero note. The 7220A appendix explicitly says PH increases the register
+from eight to nine bits and raises supported pitch to 511, which establishes a
+base maximum of 255 rather than a zero-as-256 encoding. RESET/SYNC can still
+request AW=256; loading its low eight-bit `(P2+2)` result produces pitch `00h`.
+
+The implemented register behavior follows that width evidence and never aliases
+`00h` to 256. What drawing/address hardware does with a deliberately programmed
+zero pitch is not described; it remains undefined until primary evidence or a
+physical trace establishes whether it acts as zero or has another internal
+interpretation.

@@ -92,7 +92,7 @@ unless optional RESET parameters overwrite the sync-format fields.
 provides decoded count views without losing their original encodings. Received
 prefix bytes update individually; fields not reached before a new command keep
 their prior values. The block decodes display/framing modes, refresh and drawing
-window selection, AW/pitch, HS, VS, HFP, HBP, VFP, AL, and VBP. Vertical
+window selection, AW, HS, VS, HFP, HBP, VFP, AL, and VBP. Vertical
 all-zero fields expand to their documented power-of-two maximum.
 
 SYNC's opcode DE bit updates the requested display-enable state without
@@ -137,6 +137,18 @@ manual requires noninterlaced synchronization even when interlace is
 programmed. START/idle blanking is implemented; switching the timing generator
 to the programmed two-field half-line sequence after START remains pending. The
 inferred RESET phase origin is recorded in `docs/open_questions.md`.
+
+## Base pitch register
+
+`upd7220_pitch` owns the base device's eight-bit display-memory row width.
+PITCH P1 loads all eight bits literally. RESET/SYNC P2 loads `(P2 + 2)` into
+the same eight-bit register, independently of the nine-bit decoded AW count;
+therefore valid AW=256 produces base pitch `00h`. A RESET opcode without P2
+retains the earlier pitch.
+
+The explicit 7220A PH ninth bit is not mixed into the base behavior. Its
+evidence-backed location is SYNC/RESET P5 bit 6 and will be enabled with
+variant-specific tests in the A-profile milestone.
 
 ## Compatibility profiles
 

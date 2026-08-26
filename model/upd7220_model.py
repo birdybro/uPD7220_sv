@@ -553,6 +553,8 @@ class GdcModel:
         parameter = (kind, index, entry.value)
         if kind in (CommandKind.RESET, CommandKind.SYNC):
             self.load_sync_parameter(index, entry.value)
+        elif kind is CommandKind.PITCH and index == 0:
+            self.pitch = entry.value
         if self.active_repeats_parameter_group:
             self.next_parameter_index = (index + 1) % self.active_parameter_limit
             return ParserEvent(parameter=parameter)
@@ -585,7 +587,7 @@ class GdcModel:
             self.sync.retrace_only_drawing = bool(p1 & 0x10)
         if known & 0x02:
             self.sync.active_words = parameters[1] + 2
-            self.pitch = self.sync.active_words
+            self.pitch = self.sync.active_words & BYTE_MASK
         if known & 0x04:
             self.sync.hsync_width = (parameters[2] & 0x1F) + 1
         if (known & 0x0C) == 0x0C:

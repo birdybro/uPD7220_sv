@@ -16,6 +16,7 @@ RTL_SOURCES = [
     ROOT / "rtl" / "upd7220_fifo.sv",
     ROOT / "rtl" / "upd7220_command.sv",
     ROOT / "rtl" / "upd7220_sync_control.sv",
+    ROOT / "rtl" / "upd7220_pitch.sv",
     ROOT / "rtl" / "upd7220_video_timing.sv",
     ROOT / "rtl" / "upd7220_vertical_timing.sv",
     ROOT / "rtl" / "upd7220_core.sv",

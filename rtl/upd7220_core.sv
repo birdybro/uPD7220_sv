@@ -88,7 +88,6 @@ module upd7220_core #(
     logic       unused_refresh_enable;
     logic       unused_drawing_during_retrace_only;
     logic [8:0] sync_active_words;
-    logic [8:0] unused_base_pitch;
     logic [5:0] sync_hsync_width;
     logic [5:0] sync_vsync_width;
     logic [6:0] sync_horizontal_front_porch;
@@ -107,6 +106,7 @@ module upd7220_core #(
     logic       unused_field_start;
     upd7220_pkg::vertical_phase_t unused_vertical_phase;
     logic [10:0] unused_vertical_line_index;
+    logic [8:0] unused_pitch;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -141,7 +141,6 @@ module upd7220_core #(
         unused_framing_mode,
         unused_refresh_enable,
         unused_drawing_during_retrace_only,
-        unused_base_pitch,
         unused_horizontal_blank,
         unused_active_word,
         unused_line_start,
@@ -150,7 +149,8 @@ module upd7220_core #(
         unused_active_line,
         unused_field_start,
         unused_vertical_phase,
-        unused_vertical_line_index
+        unused_vertical_line_index,
+        unused_pitch
     };
 
     assign status_value = device_initialized_q
@@ -259,7 +259,6 @@ module upd7220_core #(
         .refresh_enable            (unused_refresh_enable),
         .drawing_during_retrace_only (unused_drawing_during_retrace_only),
         .active_words              (sync_active_words),
-        .base_pitch                (unused_base_pitch),
         .hsync_width               (sync_hsync_width),
         .vsync_width               (sync_vsync_width),
         .horizontal_front_porch    (sync_horizontal_front_porch),
@@ -267,6 +266,18 @@ module upd7220_core #(
         .vertical_front_porch      (sync_vertical_front_porch),
         .active_lines              (sync_active_lines),
         .vertical_back_porch       (sync_vertical_back_porch)
+    );
+
+    upd7220_pitch #(
+        .GDC_VARIANT
+    ) pitch_register (
+        .clk_2x,
+        .integration_reset_n,
+        .parameter_valid,
+        .parameter_kind,
+        .parameter_index,
+        .parameter_data,
+        .pitch                      (unused_pitch)
     );
 
     upd7220_video_timing video_timing (

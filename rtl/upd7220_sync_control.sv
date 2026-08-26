@@ -32,7 +32,6 @@ module upd7220_sync_control #(
     output logic                       refresh_enable,
     output logic                       drawing_during_retrace_only,
     output logic [8:0]                 active_words,
-    output logic [8:0]                 base_pitch,
     output logic [5:0]                 hsync_width,
     output logic [5:0]                 vsync_width,
     output logic [6:0]                 horizontal_front_porch,
@@ -71,7 +70,6 @@ module upd7220_sync_control #(
     assign drawing_during_retrace_only = sync_parameter_q[0][4];
 
     assign active_words = {1'b0, sync_parameter_q[1]} + 9'd2;
-    assign base_pitch = active_words;
     assign hsync_width = {1'b0, sync_parameter_q[2][4:0]} + 6'd1;
     assign raw_vsync_width = {
         sync_parameter_q[3][1:0], sync_parameter_q[2][7:5]

@@ -178,6 +178,17 @@ async def host_command_and_settle(dut: object, opcode: int) -> None:
         await Timer(1, unit="ps")
 
 
+async def host_parameter_and_settle(dut: object, value: int) -> None:
+    dut.host_a0.value = 0
+    dut.host_db_i.value = value
+    dut.host_wr_n.value = 0
+    await Timer(120, unit="ns")
+    dut.host_wr_n.value = 1
+    for _ in range(8):
+        await sample_after_rising_edge(dut)
+        await Timer(1, unit="ps")
+
+
 @cocotb.test()
 async def vsync_commands_control_the_external_sync_pin_direction(dut: object) -> None:
     cocotb.start_soon(Clock(dut.clk_2x, 200, unit="ns").start())
@@ -278,3 +289,33 @@ async def start_exits_idle_while_bctrl_only_changes_enable(dut: object) -> None:
     await host_command_and_settle(dut, 0x0D)
     assert int(dut.idle_q.value) == 0
     assert int(dut.sync_display_enable.value) == 1
+
+
+@cocotb.test()
+async def pitch_parameters_reach_the_retained_register(dut: object) -> None:
+    cocotb.start_soon(Clock(dut.clk_2x, 200, unit="ns").start())
+    dut.host_rd_n.value = 1
+    dut.host_wr_n.value = 1
+    dut.host_a0.value = 0
+    dut.host_db_i.value = 0
+    dut.v_ext_sync_i.value = 0
+    dut.dack_n.value = 1
+    dut.mem_ad_i.value = 0
+    dut.lpen.value = 0
+    dut.integration_reset_n.value = 0
+    await sample_after_rising_edge(dut)
+    await Timer(1, unit="ps")
+    dut.integration_reset_n.value = 1
+
+    await host_command_and_settle(dut, 0x00)
+    await host_command_and_settle(dut, 0x47)
+    await host_parameter_and_settle(dut, 0xA5)
+    assert int(dut.unused_pitch.value) == 0xA5
+
+    await host_command_and_settle(dut, 0x00)
+    assert int(dut.unused_pitch.value) == 0xA5
+
+    await host_command_and_settle(dut, 0x0E)
+    await host_parameter_and_settle(dut, 0x02)
+    await host_parameter_and_settle(dut, 0xFE)
+    assert int(dut.unused_pitch.value) == 0x00
