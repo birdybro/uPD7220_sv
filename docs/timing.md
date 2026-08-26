@@ -296,6 +296,28 @@ available to later drawing/DMA arbitration. Only AD0-AD7 are specified by the
 manuals; deterministic upper output values and reset origin are recorded as
 inferences in `docs/open_questions.md`.
 
+## Basic WDAT RMW composition
+
+For the implemented `20h`, DIR=0, DC=0 subset, a complete low/high parameter
+group becomes one pending request. The command processor does not dequeue a
+later FIFO entry until that RMW completes. The host-side FIFO can continue to
+accept writes within its normal capacity. At the next slot not owned by refresh
+or an active graphics fetch, the request uses the base RMW edge table above:
+
+| Edge/event | WDAT-visible effect |
+|---|---|
+| accepted rising C1 | snapshot address is already stable on AD/A16/A17; EAD has not advanced |
+| falling C2 through falling C3 | DBIN read window; old memory word is captured at falling C3 |
+| rising/falling C4 | drive the stable masked REPLACE result for the complete write clock |
+| following rising edge | primitive completes and releases AD |
+| response-consumer rising edge | advance EAD by pitch for DIR=0 and permit the parser to consume the next FIFO entry |
+
+The physical C1-C4 edges, address retention, DBIN, input sample, C4 value, and
+bus release are cycle-tested. The extra registered response-consumer edge is
+the current independently tested integration schedule; a later final command
+timing audit will compare command-to-request latency against any more precise
+primary timing evidence that becomes available.
+
 ## Display-memory electrical timing (base 82720)
 
 The following page-27 propagation/setup values are recorded separately from the

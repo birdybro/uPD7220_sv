@@ -31,7 +31,7 @@ read-modify-write modifier, `DE` is display enable, `M` selects sync master, and
 | CURS | `49` | 2 in character mode; 3 in graphics mode | EAD and, for graphics, dAD expanded to a one-of-16 mask | Parser accepts a three-byte maximum; a new command legally terminates after P2 | Register effect unit verified |
 | PRAM | `70`–`7F` (`0111SA`) | 1 through `16-SA` | Sequential Parameter RAM locations SA through 15 | Ends at location 15 or when a new command arrives | Raw register effect and host path unit verified |
 | PITCH | `47` | 1 | Load literal base 8-bit display-memory horizontal pitch | Completes after P1 | Register effect unit verified |
-| WDAT | `001TT0MM` | Repeated groups of 2 for word or 1 for byte | Pattern/data input for display-memory RMW writes | Remains active for further groups until a new command | Decode verified |
+| WDAT | `001TT0MM` | Repeated groups of 2 for word or 1 for byte | Pattern/data input for display-memory RMW writes | Remains active for further groups until a new command | `20h` word REPLACE with DIR=0/DC=0 cycle verified; other encodings pending |
 | MASK | `4A` | 2 | Load the shared 16-bit modification mask, low byte then high byte | Each received byte takes effect; completes after P2 or is interrupted by a new command | Register effect unit verified |
 | FIGS | `4C` | 0–11 | Figure type/DIR, then DC, D, D2, D1, and DM | Registers initialize on opcode; the optional ordered prefix ends at P11 or on a new command | Decode verified |
 | FIGD | `6C` | 0 | Start figure drawing | Completes with opcode | Decode verified |

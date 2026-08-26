@@ -296,6 +296,29 @@ integration is deterministic. Those upper values and the numerical RESET
 counter origin are explicitly excluded from original-silicon claims in the
 open-questions record.
 
+## Basic WDAT execution
+
+`upd7220_wdat` implements the first deliberately bounded WDAT slice: opcode
+`20h` (word transfer, REPLACE), FIGS direction zero, and DC zero. P1 immediately
+loads the Pattern register low byte. P2 loads its high byte and snapshots EAD,
+MASK, display mode, and pitch for one pending RMW request. In character mode the
+full `{P2,P1}` word is modification data; in base graphics mode P1 bit zero is
+expanded to all zeroes or all ones before MASK is applied.
+
+The command processor pauses after the complete data group while the request is
+pending or active, but the asynchronous host interface and FIFO remain able to
+accept later bytes. The arbiter gives refresh first priority, active graphics
+fetch second priority, and this WDAT request the remaining slot. The existing
+memory primitive guarantees DBIN read capture before C4 drives
+`(old & ~mask) | (pattern & mask)`. Completion advances EAD by pitch for DIR=0
+and unblocks the next FIFO parameter group or command.
+
+The RTL accepts additional complete groups under the same WDAT opcode and
+executes each once, matching the documented post-first-group DC=0 behavior. The
+not-yet-connected FIGS count/direction state, byte types, three other logical
+operations, mixed-mode area selection, zoom extension, and final flash/flashless
+arbitration remain outside this basic slice.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:

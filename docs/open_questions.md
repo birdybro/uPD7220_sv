@@ -81,3 +81,20 @@ model and fixed tests preserve that convention, while conformance claims cover
 only the successive modulo-256 AD0-AD7 sequence after the selected origin. A
 manufacturer clarification or physical trace may refine these values without
 changing the evidence-backed cycle cadence.
+
+## OQ-007 — base graphics WDAT parameter-bit wording
+
+The Intel preliminary data sheet and application manual state that graphics
+WDAT can supply only an all-zero or all-one pattern. Worked multi-pixel-write
+sequences explicitly require bit zero of the low parameter byte to be one, and
+the prose elsewhere refers to “the least significant bit” replacing every bit
+of a written word. One sentence instead says the least significant bit of the
+parameter “bytes” is used, despite a two-byte word group.
+
+The base implementation selects P1 bit zero and ignores P2 for graphics modify
+data, while retaining the complete `{P2,P1}` Pattern register and using it in
+character mode. Fixed tests distinguish this interpretation by setting P1 bit
+zero low while P2 bit zero is high. The later 7220A WG profile will allow the
+documented full graphics WDAT pattern only behind its variant gate. Physical
+base-device evidence should resolve whether the plural wording has any further
+observable meaning.

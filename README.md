@@ -22,6 +22,10 @@ scheduling is connected for unzoomed graphics mode, including pitch, partition,
 image-repeat, blanking, idle, and 18-bit address behavior. Enabled dynamic-RAM
 refresh now occupies every HSYNC word with a two-clock address-only cycle and
 successive eight-bit row addresses, independently of START or screen blanking.
+The first WDAT execution slice supports word-format REPLACE with FIGS DIR=0 and
+DC=0: it performs a physical four-clock masked RMW at EAD, advances EAD by
+pitch, and implements base graphics all-zero/all-one versus character full-word
+data semantics.
 Character/mixed physical fetch pins, full drawing/DMA arbitration, zoom, and
 fetched pixel use remain later milestones. Accuracy claims are limited to
 primary-source requirements with executable tests.

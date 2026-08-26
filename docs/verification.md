@@ -109,6 +109,17 @@ on one HSYNC followed by `03,04,05` on the next. It checks exact two-clock
 spacing, the full-line gap, BLANK, inactive DBIN, zero-extended FPGA output,
 operation while still idle, and an entirely unclaimed HSYNC bus when D=0.
 
+Basic WDAT tests cover the standalone request engine and the complete
+host/FIFO/parser/cursor/memory composition. The Python model exhaustively checks
+all old/data values per selected bit and representative full-word masks.
+Character mode verifies `A55Ah` through mask `0FF0h` against old `F00Fh`, with
+physical C1 address `12345h`, the exact DBIN read window, stable C4 write
+`F55Fh`, and final EAD `12349h`. Graphics tests execute two parameter groups,
+prove P1 bit-zero expansion to all-zero/all-one data, preserve masked bits, and
+advance EAD after each cycle. Unit tests also cover request backpressure,
+Pattern-register assembly/retention, reset abort, and response-before-EAD-update
+ordering.
+
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent
 of the physical GDC wrapper.

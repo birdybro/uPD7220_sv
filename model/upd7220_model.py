@@ -958,6 +958,37 @@ class GdcModel:
         self.advance_display_slot()
         return address
 
+    def execute_basic_wdat_word_replace(
+        self, data: int, *, direction: int = 0
+    ) -> tuple[int, int, int]:
+        """Execute the initial TT=word/MOD=replace/DC=0 WDAT subset.
+
+        The return value is ``(address, old_word, new_word)``. Graphics mode
+        expands WDAT P1 bit zero across the word; character mode uses all 16
+        parameter bits. Nonzero DIR and mixed-mode GD selection arrive with
+        the FIGS and complete-WDAT milestones.
+        """
+        data = self._word(data)
+        self.pattern = data
+        if direction != 0:
+            raise ModelError("basic WDAT supports only FIGS direction zero")
+        if self.ead is None or self.mask is None or self.pitch is None:
+            raise PowerOnStateError("WDAT requires EAD, MASK, and PITCH")
+        mode = self._current_display_mode()
+        if mode is DisplayMode.GRAPHICS:
+            operation_pattern = WORD_MASK if data & 1 else 0
+        elif mode is DisplayMode.CHARACTER:
+            operation_pattern = data
+        else:
+            raise ModelError("basic WDAT does not select mixed-mode area type")
+
+        address = self.ead
+        old_word = self.read_memory(address)
+        new_word = (old_word & ~self.mask) | (operation_pattern & self.mask)
+        self.write_memory(address, new_word)
+        self.ead = (address + self.pitch) & DISPLAY_ADDRESS_MASK
+        return address, old_word, new_word
+
     @property
     def refresh_request(self) -> bool:
         """Whether the current raster slot must issue a refresh cycle."""

@@ -28,6 +28,8 @@ async def start_and_reset(dut: object) -> None:
     dut.parameter_kind.value = 0
     dut.parameter_index.value = 0
     dut.parameter_data.value = 0
+    dut.execution_ead_update_valid.value = 0
+    dut.execution_ead_update.value = 0
     dut.response_ready.value = 0
     dut.integration_reset_n.value = 0
     cocotb.start_soon(Clock(dut.clk_2x, 200, unit="ns").start())

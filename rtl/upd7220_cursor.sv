@@ -12,6 +12,9 @@ module upd7220_cursor (
     input  logic [3:0]                 parameter_index,
     input  logic [7:0]                 parameter_data,
 
+    input  logic                       execution_ead_update_valid,
+    input  logic [17:0]                execution_ead_update,
+
     output logic                       turn_to_read,
     output logic                       response_valid,
     output logic [7:0]                 response_data,
@@ -117,6 +120,10 @@ module upd7220_cursor (
                     end
                 endcase
             end
+
+            if (execution_ead_update_valid) begin
+                ead_q <= execution_ead_update;
+            end
         end
     end
 
@@ -145,6 +152,11 @@ module upd7220_cursor (
              && (parameter_index == 4'd1))
             |=> (mask_q[15:8] == $past(parameter_data));
     endproperty
+    property p_execution_ead_update;
+        @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)
+            execution_ead_update_valid
+            |=> (ead_q == $past(execution_ead_update));
+    endproperty
 
     assert property (p_curd_response_index_in_range)
         else $error("CURD response index exceeded five-byte response");
@@ -156,6 +168,8 @@ module upd7220_cursor (
         else $error("MASK P1 failed to load the low mask byte");
     assert property (p_mask_high_byte_load)
         else $error("MASK P2 failed to load the high mask byte");
+    assert property (p_execution_ead_update)
+        else $error("execution engine failed to update EAD");
 `endif
 
 endmodule

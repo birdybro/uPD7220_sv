@@ -32,6 +32,11 @@ module upd7220_core #(
     output logic        word_time_ce
 );
 
+    // The integration reset intentionally resets rising- and falling-edge
+    // state asynchronously; simulation assertions also use it as disable iff.
+    // The linter otherwise reports that deliberate combination as a CDC.
+    /* verilator lint_off SYNCASYNCNET */
+
     logic word_half_q;
     logic _unused_inputs;
     logic device_initialized_q;
@@ -110,9 +115,9 @@ module upd7220_core #(
     upd7220_pkg::vertical_phase_t unused_vertical_phase;
     logic [10:0] unused_vertical_line_index;
     logic [8:0] display_pitch;
-    logic [17:0] unused_ead;
+    logic [17:0] execution_ead;
     logic [3:0] unused_dot_address;
-    logic [15:0] unused_mask;
+    logic [15:0] execution_mask;
     logic [127:0] display_parameter_ram;
     logic [15:0] unused_pram_programmed_mask;
     logic       raster_partition_active;
@@ -127,14 +132,14 @@ module upd7220_core #(
     logic       unused_wide_access;
     logic       mem_request_ready;
     logic       mem_response_valid;
-    upd7220_pkg::memory_cycle_kind_t unused_mem_response_kind;
+    upd7220_pkg::memory_cycle_kind_t mem_response_kind;
     logic [17:0] mem_response_address;
     logic [15:0] mem_response_read_data;
     logic       mem_cycle_active;
     upd7220_pkg::memory_cycle_kind_t unused_mem_cycle_kind;
     upd7220_pkg::memory_cycle_phase_t unused_mem_cycle_phase;
-    logic       unused_rmw_read_data_valid;
-    logic [15:0] unused_rmw_read_data;
+    logic       mem_rmw_read_data_valid;
+    logic [15:0] mem_rmw_read_data;
     logic       mem_display_request_valid;
     logic       mem_display_accept;
     logic       mem_refresh_request_valid;
@@ -144,6 +149,14 @@ module upd7220_core #(
     logic       mem_request_valid;
     upd7220_pkg::memory_cycle_kind_t mem_request_kind;
     logic [17:0] mem_request_address;
+    logic       wdat_busy;
+    logic [15:0] wdat_pattern;
+    logic       mem_wdat_request_valid;
+    logic       mem_wdat_request_ready;
+    logic [17:0] mem_wdat_request_address;
+    logic [15:0] mem_wdat_write_data;
+    logic       wdat_cursor_update_valid;
+    logic [17:0] wdat_cursor_update_ead;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -181,9 +194,7 @@ module upd7220_core #(
         unused_field_start,
         unused_vertical_phase,
         unused_vertical_line_index,
-        unused_ead,
         unused_dot_address,
-        unused_mask,
         unused_pram_programmed_mask,
         unused_partition_index,
         unused_partition_line_index,
@@ -193,17 +204,13 @@ module upd7220_core #(
         unused_image_area,
         unused_graphics_area,
         unused_wide_access,
-        unused_mem_response_kind,
         unused_mem_cycle_kind,
         unused_mem_cycle_phase,
-        unused_rmw_read_data_valid,
-        unused_rmw_read_data,
-        mem_response_valid,
-        mem_response_address,
         mem_response_read_data,
         mem_cycle_active,
         mem_refresh_accept,
-        refresh_counter
+        refresh_counter,
+        wdat_pattern
     };
 
     // START begins raster display-memory scanning. BCTRL/SYNC DE controls
@@ -222,13 +229,18 @@ module upd7220_core #(
     // priority over all other memory work, as specified by the design and
     // application manuals. Raster active words cannot overlap HSYNC, but the
     // explicit mux preserves that priority as later requesters are added.
+    assign mem_wdat_request_ready = mem_request_ready
+        && !mem_refresh_request_valid && !mem_display_request_valid;
     assign mem_request_valid = mem_refresh_request_valid
-        || mem_display_request_valid;
+        || mem_display_request_valid || mem_wdat_request_valid;
     assign mem_request_kind = mem_refresh_request_valid
         ? upd7220_pkg::MEM_CYCLE_REFRESH
-        : upd7220_pkg::MEM_CYCLE_DISPLAY;
+        : (mem_display_request_valid ? upd7220_pkg::MEM_CYCLE_DISPLAY
+                                     : upd7220_pkg::MEM_CYCLE_RMW);
     assign mem_request_address = mem_refresh_request_valid
-        ? mem_refresh_address : raster_dad;
+        ? mem_refresh_address
+        : (mem_display_request_valid ? raster_dad
+                                     : mem_wdat_request_address);
 
     assign status_value = device_initialized_q
         ? {5'b0, fifo_empty, fifo_full, fifo_data_ready}
@@ -281,7 +293,7 @@ module upd7220_core #(
         .clk_2x,
         .integration_reset_n,
         .reset_command,
-        .processor_enable          (1'b1),
+        .processor_enable          (!wdat_busy),
         .fifo_valid                (command_valid),
         .fifo_is_command           (command_is_command),
         .fifo_data                 (command_data),
@@ -367,13 +379,15 @@ module upd7220_core #(
         .parameter_kind,
         .parameter_index,
         .parameter_data,
+        .execution_ead_update_valid (wdat_cursor_update_valid),
+        .execution_ead_update       (wdat_cursor_update_ead),
         .turn_to_read               (cursor_turn_to_read),
         .response_valid             (cursor_response_valid),
         .response_data              (cursor_response_data),
         .response_ready             (fifo_response_ready),
-        .ead                         (unused_ead),
+        .ead                         (execution_ead),
         .dot_address                 (unused_dot_address),
-        .mask                        (unused_mask)
+        .mask                        (execution_mask)
     );
 
     upd7220_pram parameter_ram_registers (
@@ -427,9 +441,37 @@ module upd7220_core #(
         .refresh_counter
     );
 
-    // Refresh and graphics raster fetches currently feed the primitive.
-    // Drawing, DMA, and mode-specific display schedulers join through explicit
-    // arbitration in their dedicated milestones.
+    upd7220_wdat write_data_engine (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .parameter_valid,
+        .parameter_kind,
+        .parameter_opcode,
+        .parameter_index,
+        .parameter_data,
+        .display_mode                 (sync_display_mode),
+        .cursor_ead                    (execution_ead),
+        .cursor_mask                   (execution_mask),
+        .pitch                         (display_pitch),
+        .busy                          (wdat_busy),
+        .pattern                       (wdat_pattern),
+        .request_valid                 (mem_wdat_request_valid),
+        .request_ready                 (mem_wdat_request_ready),
+        .request_address               (mem_wdat_request_address),
+        .rmw_write_data                (mem_wdat_write_data),
+        .response_valid                (mem_response_valid),
+        .response_kind                 (mem_response_kind),
+        .response_address              (mem_response_address),
+        .rmw_read_data_valid           (mem_rmw_read_data_valid),
+        .rmw_read_data                 (mem_rmw_read_data),
+        .cursor_update_valid           (wdat_cursor_update_valid),
+        .cursor_update_ead             (wdat_cursor_update_ead)
+    );
+
+    // Refresh, graphics raster fetch, and the basic WDAT RMW path currently
+    // feed the primitive. Remaining drawing/DMA/mode-specific schedulers join
+    // through explicit arbitration in their dedicated milestones.
     upd7220_memif memory_interface (
         .clk_2x,
         .integration_reset_n,
@@ -438,16 +480,16 @@ module upd7220_core #(
         .request_ready                (mem_request_ready),
         .request_kind                 (mem_request_kind),
         .request_address              (mem_request_address),
-        .rmw_write_data               (16'h0000),
+        .rmw_write_data               (mem_wdat_write_data),
         .response_valid               (mem_response_valid),
-        .response_kind                (unused_mem_response_kind),
+        .response_kind                (mem_response_kind),
         .response_address             (mem_response_address),
         .response_read_data           (mem_response_read_data),
         .cycle_active                 (mem_cycle_active),
         .cycle_kind                   (unused_mem_cycle_kind),
         .cycle_phase                  (unused_mem_cycle_phase),
-        .rmw_read_data_valid          (unused_rmw_read_data_valid),
-        .rmw_read_data                (unused_rmw_read_data),
+        .rmw_read_data_valid          (mem_rmw_read_data_valid),
+        .rmw_read_data                (mem_rmw_read_data),
         .mem_ad_i,
         .mem_ad_o,
         .mem_ad_oe,
@@ -526,5 +568,7 @@ module upd7220_core #(
     end
 
 endmodule
+
+/* verilator lint_on SYNCASYNCNET */
 
 `default_nettype wire
