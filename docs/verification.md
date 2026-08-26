@@ -1,9 +1,9 @@
 # Verification architecture
 
-The verification environment is designed to drive the Python architectural
-model and SystemVerilog RTL with identical deterministic stimuli. At the current
-bootstrap milestone, it proves the tool flow itself; it does not yet prove any
-GDC behavior.
+The verification environment drives the Python architectural model and
+SystemVerilog RTL with identical deterministic stimuli. Its current scope
+covers reset, FIFO/parser/register behavior and horizontal raster pin timing;
+later command, memory, drawing, DMA, and vertical timing layers remain pending.
 
 ## Tool bootstrap
 
@@ -30,13 +30,18 @@ make setup-dev PYTHON=python3.13
 make lint       # Python syntax/schema checks and Verilator lint
 make test-unit  # simulator-independent unit tests
 make test-rtl   # Verilator+cocotb tests
+make test-timing # independent model and exact video-edge traces
 make test       # normal unit and RTL regression
 make test-all   # currently aliases the complete available regression
 ```
 
-The smoke DUT under `tests/rtl/` exists only to test clock/reset, SystemVerilog
-compilation, VPI loading, cocotb scheduling, and waveform generation before the
-physical GDC wrapper is introduced.
+The timing target currently checks every horizontal HFP/HSYNC/HBP/AW
+transition, the two-rising-edge word cadence, falling-edge video output
+changes, BLANK display-enable behavior, and reset from an active sync interval.
+
+The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
+compilation, VPI loading, cocotb scheduling, and waveform generation independent
+of the physical GDC wrapper.
 
 ## Deterministic failures
 
@@ -73,8 +78,8 @@ The architectural model will not import RTL implementation logic. Cocotb agents
 translate only between pin activity and independent model/test data structures.
 
 The model represents undocumented pre-RESET status as explicitly unavailable,
-advances one rising 2xWCLK edge per call, and hashes architectural state and the
-full 256K-word display memory deterministically. Its RESET primitive preserves
+advances rising and falling 2xWCLK edges explicitly, and hashes architectural
+state and the full 256K-word display memory deterministically. Its RESET primitive preserves
 programmed parameter state while clearing the FIFO and active operations, as the
 base-device data sheet requires.
 

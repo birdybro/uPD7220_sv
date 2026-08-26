@@ -20,9 +20,10 @@ behavior.
 ## Clock foundation
 
 2xWCLK is the only clock. A registered `word_time_ce` pulse occurs after every
-second rising edge, representing the manual's two-clock machine/word time. All
-future memory, command, DMA, and raster state machines use clock enables; no
-derived clock is introduced.
+second rising edge, representing the manual's two-clock machine/word time. The
+video pin registers consume that enable on the following falling edge because
+the vendor TCO specification references HSYNC and BLANK changes to falling
+2xWCLK. No derived clock is introduced; use of the opposite edge is explicit.
 
 The integration reset establishes electrically safe idle directions: host and
 display-memory buses are released, V/EXT SYNC is an input, DBIN is inactive,
@@ -99,6 +100,20 @@ entering idle or clearing other state. VSYNC's M bit directly controls whether
 the physical V/EXT SYNC pin is driven (master) or released as an input (slave).
 Raster waveform generation on that pin belongs to the vertical timing block and
 is not implemented by this register milestone.
+
+## Horizontal raster timing
+
+`upd7220_video_timing` implements the documented four-interval line sequence:
+horizontal front porch, horizontal sync, horizontal back porch, then active
+words. Every programmed count is measured in display-word times of two 2xWCLK
+periods. Its explicit interval state and word index drive HSYNC, horizontal
+blank, active-word qualification, and a line-start pulse.
+
+HSYNC is high only in the sync interval. BLANK is high throughout all three
+horizontal retrace intervals and remains high in the active interval when SYNC
+has disabled display output. Horizontal timing continues while display output
+is disabled. Vertical blanking and memory-cycle ownership will add further
+BLANK qualifications in their respective milestones.
 
 ## Compatibility profiles
 

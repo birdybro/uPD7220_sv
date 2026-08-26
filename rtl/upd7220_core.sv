@@ -87,15 +87,20 @@ module upd7220_core #(
     upd7220_pkg::framing_mode_t unused_framing_mode;
     logic       unused_refresh_enable;
     logic       unused_drawing_during_retrace_only;
-    logic [8:0] unused_active_words;
+    logic [8:0] sync_active_words;
     logic [8:0] unused_base_pitch;
-    logic [5:0] unused_hsync_width;
+    logic [5:0] sync_hsync_width;
     logic [5:0] unused_vsync_width;
-    logic [6:0] unused_horizontal_front_porch;
-    logic [6:0] unused_horizontal_back_porch;
+    logic [6:0] sync_horizontal_front_porch;
+    logic [6:0] sync_horizontal_back_porch;
     logic [6:0] unused_vertical_front_porch;
     logic [10:0] unused_active_lines;
     logic [6:0] unused_vertical_back_porch;
+    logic       unused_horizontal_blank;
+    logic       unused_active_word;
+    logic       unused_line_start;
+    upd7220_pkg::horizontal_phase_t unused_horizontal_phase;
+    logic [8:0] unused_horizontal_word_index;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -117,7 +122,6 @@ module upd7220_core #(
         unused_active_kind,
         unused_active_opcode,
         unused_next_parameter_index,
-        sync_display_enable,
         unused_sync_programmed_mask,
         unused_sync_p1,
         unused_sync_p2,
@@ -131,15 +135,16 @@ module upd7220_core #(
         unused_framing_mode,
         unused_refresh_enable,
         unused_drawing_during_retrace_only,
-        unused_active_words,
         unused_base_pitch,
-        unused_hsync_width,
         unused_vsync_width,
-        unused_horizontal_front_porch,
-        unused_horizontal_back_porch,
         unused_vertical_front_porch,
         unused_active_lines,
         unused_vertical_back_porch,
+        unused_horizontal_blank,
+        unused_active_word,
+        unused_line_start,
+        unused_horizontal_phase,
+        unused_horizontal_word_index,
         idle_q
     };
 
@@ -248,15 +253,34 @@ module upd7220_core #(
         .framing_mode              (unused_framing_mode),
         .refresh_enable            (unused_refresh_enable),
         .drawing_during_retrace_only (unused_drawing_during_retrace_only),
-        .active_words              (unused_active_words),
+        .active_words              (sync_active_words),
         .base_pitch                (unused_base_pitch),
-        .hsync_width               (unused_hsync_width),
+        .hsync_width               (sync_hsync_width),
         .vsync_width               (unused_vsync_width),
-        .horizontal_front_porch    (unused_horizontal_front_porch),
-        .horizontal_back_porch     (unused_horizontal_back_porch),
+        .horizontal_front_porch    (sync_horizontal_front_porch),
+        .horizontal_back_porch     (sync_horizontal_back_porch),
         .vertical_front_porch      (unused_vertical_front_porch),
         .active_lines              (unused_active_lines),
         .vertical_back_porch       (unused_vertical_back_porch)
+    );
+
+    upd7220_video_timing video_timing (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .word_time_ce,
+        .display_enable             (sync_display_enable),
+        .active_words               (sync_active_words),
+        .hsync_width                (sync_hsync_width),
+        .horizontal_front_porch     (sync_horizontal_front_porch),
+        .horizontal_back_porch      (sync_horizontal_back_porch),
+        .hsync,
+        .horizontal_blank           (unused_horizontal_blank),
+        .blank,
+        .active_word                (unused_active_word),
+        .line_start                 (unused_line_start),
+        .horizontal_phase           (unused_horizontal_phase),
+        .horizontal_word_index      (unused_horizontal_word_index)
     );
 
     generate
@@ -274,9 +298,7 @@ module upd7220_core #(
             word_half_q  <= 1'b0;
             word_time_ce <= 1'b0;
             mem_dbin_n   <= 1'b1;
-            hsync        <= 1'b0;
             v_ext_sync_o <= 1'b0;
-            blank        <= 1'b1;
             mem_ale      <= 1'b1;
             drq          <= 1'b0;
             mem_ad_o     <= 16'h0000;
@@ -289,9 +311,7 @@ module upd7220_core #(
             word_half_q          <= 1'b0;
             word_time_ce         <= 1'b0;
             mem_dbin_n           <= 1'b1;
-            hsync                <= 1'b0;
             v_ext_sync_o         <= 1'b0;
-            blank                <= 1'b1;
             mem_ale              <= 1'b1;
             drq                  <= 1'b0;
             mem_ad_o             <= 16'h0000;

@@ -46,6 +46,13 @@ package upd7220_pkg;
         FRAME_INTERLACED    = 2'b11
     } framing_mode_t;
 
+    typedef enum logic [1:0] {
+        HPHASE_FRONT_PORCH = 2'd0,
+        HPHASE_SYNC        = 2'd1,
+        HPHASE_BACK_PORCH  = 2'd2,
+        HPHASE_ACTIVE      = 2'd3
+    } horizontal_phase_t;
+
     localparam int unsigned HOST_DATA_WIDTH = 8;
     localparam int unsigned MEM_DATA_WIDTH = 16;
     localparam int unsigned FIFO_DEPTH = 16;

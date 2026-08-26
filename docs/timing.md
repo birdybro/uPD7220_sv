@@ -119,13 +119,46 @@ retain their earlier values. Decoded counts are:
 
 P1 uses C=P1[5] and G=P1[1] for mixed/graphics/character mode; I=P1[3]
 and S=P1[0] select framing; D=P1[2] enables refresh; F=P1[4] restricts
-drawing to retrace when set. Exact raster counter load/edge behavior follows in
-the horizontal and vertical timing milestones.
+drawing to retrace when set. Horizontal count/edge behavior is normalized
+below; vertical timing follows in the next raster milestone.
 
 SYNC opcode bit DE changes requested display enable. VSYNC opcode bit M changes
 the V/EXT SYNC pin direction: M=0 releases it for slave input and M=1 drives it
 for master output. The direction change is end-to-end tested through the host
 interface; the vertical waveform itself is pending.
+
+## Horizontal raster edge table
+
+Intel application manual section 6.1.1 defines every line, in order, as HFP,
+HSYNC, HBP, and AW. The first three intervals are blanked; AW is unblanked only
+when display output is enabled. With `p` as the zero-based word position:
+
+| Position range | Interval | HSYNC | horizontal blank | BLANK when DE=1 |
+|---|---|---:|---:|---:|
+| `0 <= p < HFP` | front porch | 0 | 1 | 1 |
+| `HFP <= p < HFP+HS` | sync | 1 | 1 | 1 |
+| `HFP+HS <= p < HFP+HS+HBP` | back porch | 0 | 1 | 1 |
+| remaining `AW` words | active | 0 | 0 | 0 |
+
+When DE=0, BLANK remains 1 in all four ranges; the horizontal counter and
+HSYNC continue to run. A line therefore consumes exactly
+`2 * (HFP + HS + HBP + AW)` rising 2xWCLK periods.
+
+The Intel preliminary data-sheet page-31 video-output waveform specifies TCO
+from a falling 2xWCLK edge to HSYNC/BLANK. The synthesizable edge contract is:
+
+| Clock edge after a word boundary | `word_time_ce` | Raster/pin action |
+|---|---:|---|
+| first rising edge | 0 | retain current word |
+| first falling edge | 0 | retain video pins |
+| second rising edge | 1 | mark completion of the two-clock word time |
+| second falling edge | 1 | advance interval/word index; update HSYNC and BLANK |
+
+No `#delay` models TCO. The RTL reproduces its controlling digital edge;
+nanosecond propagation limits remain the responsibility of simulation timing
+checks and implementation timing analysis. `tests/test_rtl_video_timing.py`
+checks the complete boundary trace and `tests/test_rtl_foundation.py` verifies
+the end-to-end two-clock cadence through the integrated core.
 
 ## Display-memory electrical timing (base 82720)
 
@@ -154,7 +187,7 @@ columns will become assertions/checks, not synthesizable delay statements.
 The following source diagrams still require machine-readable edge tables as
 their implementation milestones arrive: display read/write/RMW cycles,
 display-fetch and refresh ownership, DRQ/DACK sequencing, drawing execution
-latency, horizontal and vertical raster edges, master/slave synchronization,
-light-pen sampling/deglitching, interlace half-lines, and active-display memory
+latency, vertical raster edges, master/slave synchronization, light-pen
+sampling/deglitching, interlace half-lines, and active-display memory
 arbitration. Until those tables and tests exist, the project does not claim
 cycle accuracy for those subsystems.

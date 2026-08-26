@@ -57,6 +57,13 @@ class CommandState(str, Enum):
     READ_RESPONSE = "read_response"
 
 
+class HorizontalPhase(str, Enum):
+    FRONT_PORCH = "front_porch"
+    SYNC = "sync"
+    BACK_PORCH = "back_porch"
+    ACTIVE = "active"
+
+
 class CommandKind(str, Enum):
     RESET = "reset"
     SYNC = "sync"
@@ -238,13 +245,20 @@ class GdcModel:
         self.graphics_character_zoom: int | None = None
 
         self.edge_count = 0
+        self.falling_edge_count = 0
         self.word_time_count = 0
         self.word_half = 0
+        self.word_time_ce = False
         self.last_inputs = EdgeInputs()
         self.has_reset = False
         self.idle = True
         self.display_enabled = False
         self.horizontal_blank = False
+        self.horizontal_sync = False
+        self.blank = True
+        self.horizontal_word_position = 0
+        self.horizontal_phase: HorizontalPhase | None = None
+        self._timing_display_enabled = False
         self.vertical_blank = False
         self.vertical_sync = False
         self.dma_active = False
@@ -288,6 +302,11 @@ class GdcModel:
         self.idle = True
         self.display_enabled = False
         self.horizontal_blank = False
+        self.horizontal_sync = False
+        self.blank = True
+        self.horizontal_word_position = 0
+        self.horizontal_phase = None
+        self._timing_display_enabled = False
         self.vertical_blank = False
         self.vertical_sync = False
         self.dma_active = False
@@ -307,15 +326,19 @@ class GdcModel:
         # RESET initializes internal timing counters, but the primary data sheet
         # explicitly says it does not modify already loaded parameters.
         self.edge_count = 0
+        self.falling_edge_count = 0
         self.word_time_count = 0
         self.word_half = 0
+        self.word_time_ce = False
         self.last_inputs = EdgeInputs()
 
     def step_edge(self, inputs: EdgeInputs = EdgeInputs()) -> dict[str, Any]:
         """Advance one rising edge of 2xWCLK and return an immutable snapshot."""
         self.last_inputs = inputs
         self.edge_count += 1
+        previous_half = self.word_half
         self.word_half ^= 1
+        self.word_time_ce = bool(previous_half)
         if self.word_half == 0:
             self.word_time_count += 1
         if self.fifo_direction is FifoDirection.READ_FROM_GDC:
@@ -328,6 +351,57 @@ class GdcModel:
             elif self.data_register is None and self._fifo:
                 self.read_refill_count = 4
         return self.architectural_state()
+
+    def step_falling_edge(self) -> dict[str, Any]:
+        """Advance the falling 2xWCLK edge that follows the last rising edge.
+
+        The vendor TCO timing is referenced to this edge for HSYNC and BLANK.
+        Horizontal timing uses one absolute word position rather than mirroring
+        the RTL's interval-state implementation.
+        """
+        self.falling_edge_count += 1
+        self._timing_display_enabled = self.display_enabled
+        counts = self._horizontal_counts()
+        if counts is not None:
+            total_words = sum(counts)
+            if self.word_time_ce:
+                self.horizontal_word_position = (
+                    self.horizontal_word_position + 1
+                ) % total_words
+            self._update_horizontal_outputs(counts)
+        else:
+            self.horizontal_phase = None
+            self.horizontal_sync = False
+            self.horizontal_blank = False
+            self.blank = True
+        return self.architectural_state()
+
+    def _horizontal_counts(self) -> tuple[int, int, int, int] | None:
+        hfp = self.sync.horizontal_front_porch
+        sync = self.sync.hsync_width
+        hbp = self.sync.horizontal_back_porch
+        active = self.sync.active_words
+        if hfp is None or sync is None or hbp is None or active is None:
+            return None
+        typed_counts = (hfp, sync, hbp, active)
+        if any(count <= 0 for count in typed_counts):
+            raise ModelError("horizontal timing intervals must be positive")
+        return typed_counts
+
+    def _update_horizontal_outputs(self, counts: tuple[int, int, int, int]) -> None:
+        hfp, sync, hbp, _active = counts
+        position = self.horizontal_word_position
+        if position < hfp:
+            self.horizontal_phase = HorizontalPhase.FRONT_PORCH
+        elif position < hfp + sync:
+            self.horizontal_phase = HorizontalPhase.SYNC
+        elif position < hfp + sync + hbp:
+            self.horizontal_phase = HorizontalPhase.BACK_PORCH
+        else:
+            self.horizontal_phase = HorizontalPhase.ACTIVE
+        self.horizontal_sync = self.horizontal_phase is HorizontalPhase.SYNC
+        self.horizontal_blank = self.horizontal_phase is not HorizontalPhase.ACTIVE
+        self.blank = self.horizontal_blank or not self._timing_display_enabled
 
     def host_write(self, value: int, *, is_command: bool) -> None:
         """Place a tagged host byte in the CPU-to-GDC FIFO."""
@@ -534,11 +608,20 @@ class GdcModel:
         return {
             "variant": self.variant.name,
             "edge_count": self.edge_count,
+            "falling_edge_count": self.falling_edge_count,
             "word_time_count": self.word_time_count,
             "word_half": self.word_half,
+            "word_time_ce": self.word_time_ce,
             "has_reset": self.has_reset,
             "idle": self.idle,
             "display_enabled": self.display_enabled,
+            "horizontal_word_position": self.horizontal_word_position,
+            "horizontal_phase": (
+                self.horizontal_phase.value if self.horizontal_phase else None
+            ),
+            "horizontal_sync": self.horizontal_sync,
+            "horizontal_blank": self.horizontal_blank,
+            "blank": self.blank,
             "status": self.status() if self.has_reset else None,
             "fifo_direction": self.fifo_direction.value,
             "fifo": [asdict(entry) for entry in self._fifo],

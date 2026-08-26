@@ -7,8 +7,9 @@ This project is under active incremental development. It does **not** yet claim
 complete functional or cycle accuracy. The implemented scope currently covers
 the physical/split-bus wrappers, asynchronous host transfers, the half-duplex
 FIFO, base opcode parsing, dedicated RESET, and RESET/SYNC/VSYNC register
-programming. Accuracy claims are limited to primary-source requirements with
-executable tests.
+programming, plus falling-edge-aligned horizontal raster/HSYNC/BLANK timing.
+Accuracy claims are limited to primary-source requirements with executable
+tests.
 
 ## Reference corpus
 
@@ -29,6 +30,7 @@ See [`references/README.md`](references/README.md) for the corpus policy and
 make setup-dev
 make lint
 make test
+make test-timing
 ```
 
 `make test` runs Python/model unit tests and all current Verilator+cocotb RTL
