@@ -4,7 +4,7 @@ PYTHON ?= python3
 VENV ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 VENV_STAMP := $(VENV)/.upd7220-dev-ready
-RTL_SOURCES := rtl/upd7220_pkg.sv rtl/upd7220_host_if.sv rtl/upd7220_fifo.sv rtl/upd7220_command.sv rtl/upd7220_sync_control.sv rtl/upd7220_pitch.sv rtl/upd7220_cursor.sv rtl/upd7220_pram.sv rtl/upd7220_partitions.sv rtl/upd7220_video_timing.sv rtl/upd7220_vertical_timing.sv rtl/upd7220_core.sv rtl/upd7220.sv
+RTL_SOURCES := rtl/upd7220_pkg.sv rtl/upd7220_host_if.sv rtl/upd7220_fifo.sv rtl/upd7220_command.sv rtl/upd7220_sync_control.sv rtl/upd7220_pitch.sv rtl/upd7220_cursor.sv rtl/upd7220_pram.sv rtl/upd7220_partitions.sv rtl/upd7220_memif.sv rtl/upd7220_video_timing.sv rtl/upd7220_vertical_timing.sv rtl/upd7220_core.sv rtl/upd7220.sv
 
 setup-dev: $(VENV_STAMP)
 
@@ -29,7 +29,7 @@ test-rtl: $(VENV_STAMP)
 	$(VENV_PYTHON) -m pytest -m rtl tests
 
 test-timing: $(VENV_STAMP)
-	$(VENV_PYTHON) -m pytest tests/model/test_video_timing.py tests/model/test_vertical_timing.py tests/test_rtl_video_timing.py tests/test_rtl_vertical_timing.py
+	$(VENV_PYTHON) -m pytest tests/model/test_video_timing.py tests/model/test_vertical_timing.py tests/model/test_memif_model.py tests/test_rtl_video_timing.py tests/test_rtl_vertical_timing.py tests/test_rtl_memif.py
 
 test-random: test
 

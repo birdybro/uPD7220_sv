@@ -60,6 +60,19 @@ package upd7220_pkg;
         VPHASE_ACTIVE      = 2'd3
     } vertical_phase_t;
 
+    typedef enum logic {
+        MEM_CYCLE_DISPLAY = 1'b0,
+        MEM_CYCLE_RMW     = 1'b1
+    } memory_cycle_kind_t;
+
+    typedef enum logic [2:0] {
+        MEM_PHASE_IDLE = 3'd0,
+        MEM_PHASE_C1   = 3'd1,
+        MEM_PHASE_C2   = 3'd2,
+        MEM_PHASE_C3   = 3'd3,
+        MEM_PHASE_C4   = 3'd4
+    } memory_cycle_phase_t;
+
     localparam int unsigned HOST_DATA_WIDTH = 8;
     localparam int unsigned MEM_DATA_WIDTH = 16;
     localparam int unsigned FIFO_DEPTH = 16;

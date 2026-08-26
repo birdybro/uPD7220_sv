@@ -78,6 +78,23 @@ class DisplayMode(IntEnum):
     INVALID = 3
 
 
+class MemoryBusCycleKind(str, Enum):
+    DISPLAY = "display"
+    RMW = "rmw"
+
+
+class MemoryBusEdge(str, Enum):
+    RISING = "rising"
+    FALLING = "falling"
+
+
+class MemoryBusDirection(str, Enum):
+    HIGH_Z = "high_z"
+    GDC_ADDRESS = "gdc_address"
+    MEMORY_READ = "memory_read"
+    GDC_WRITE = "gdc_write"
+
+
 class CommandKind(str, Enum):
     RESET = "reset"
     SYNC = "sync"
@@ -228,6 +245,109 @@ class DisplayPartition:
     line_count: int
     image: bool
     wide: bool
+
+
+@dataclass(frozen=True)
+class MemoryBusTraceSample:
+    edge: MemoryBusEdge
+    clock_cycle: int
+    ale: bool
+    dbin_n: bool
+    direction: MemoryBusDirection
+    ad_value: int | None
+    a16: int
+    a17: int
+    read_sample: bool = False
+    complete: bool = False
+
+
+def memory_bus_cycle_trace(
+    kind: MemoryBusCycleKind,
+    address: int,
+    *,
+    read_data: int,
+    write_data: int = 0,
+) -> tuple[MemoryBusTraceSample, ...]:
+    """Return the primary-diagram half-edge trace for one memory cycle.
+
+    This oracle is a declarative timing table rather than a stateful copy of
+    the RTL. The final sample is the following rising edge, when ALE has
+    returned high and the completed cycle has released AD.
+    """
+    selected_kind = MemoryBusCycleKind(kind)
+    if not 0 <= address < DISPLAY_WORD_COUNT:
+        raise ValueError("display-memory address exceeds 18 bits")
+    if not 0 <= read_data <= WORD_MASK:
+        raise ValueError("display-memory read data exceeds 16 bits")
+    if not 0 <= write_data <= WORD_MASK:
+        raise ValueError("display-memory write data exceeds 16 bits")
+
+    last_cycle = 2 if selected_kind is MemoryBusCycleKind.DISPLAY else 4
+    samples: list[MemoryBusTraceSample] = []
+    for clock_cycle in range(1, last_cycle + 1):
+        for edge in (MemoryBusEdge.RISING, MemoryBusEdge.FALLING):
+            if clock_cycle == 1:
+                direction = MemoryBusDirection.GDC_ADDRESS
+                ad_value = address & WORD_MASK
+            elif selected_kind is MemoryBusCycleKind.DISPLAY and clock_cycle == 2:
+                direction = MemoryBusDirection.MEMORY_READ
+                ad_value = read_data
+            elif selected_kind is MemoryBusCycleKind.RMW and (
+                (clock_cycle == 2 and edge is MemoryBusEdge.FALLING)
+                or (clock_cycle == 3 and edge is MemoryBusEdge.RISING)
+            ):
+                direction = MemoryBusDirection.MEMORY_READ
+                ad_value = read_data
+            elif selected_kind is MemoryBusCycleKind.RMW and clock_cycle == 4:
+                direction = MemoryBusDirection.GDC_WRITE
+                ad_value = write_data
+            else:
+                direction = MemoryBusDirection.HIGH_Z
+                ad_value = None
+
+            dbin_n = not (
+                selected_kind is MemoryBusCycleKind.RMW
+                and (
+                    (clock_cycle == 2 and edge is MemoryBusEdge.FALLING)
+                    or (clock_cycle == 3 and edge is MemoryBusEdge.RISING)
+                )
+            )
+            samples.append(
+                MemoryBusTraceSample(
+                    edge=edge,
+                    clock_cycle=clock_cycle,
+                    ale=clock_cycle == 1 and edge is MemoryBusEdge.RISING,
+                    dbin_n=dbin_n,
+                    direction=direction,
+                    ad_value=ad_value,
+                    a16=(address >> 16) & 1,
+                    a17=(address >> 17) & 1,
+                    read_sample=(
+                        edge is MemoryBusEdge.FALLING
+                        and (
+                            (selected_kind is MemoryBusCycleKind.DISPLAY
+                             and clock_cycle == 2)
+                            or (selected_kind is MemoryBusCycleKind.RMW
+                                and clock_cycle == 3)
+                        )
+                    ),
+                )
+            )
+
+    samples.append(
+        MemoryBusTraceSample(
+            edge=MemoryBusEdge.RISING,
+            clock_cycle=last_cycle + 1,
+            ale=True,
+            dbin_n=True,
+            direction=MemoryBusDirection.HIGH_Z,
+            ad_value=None,
+            a16=(address >> 16) & 1,
+            a17=(address >> 17) & 1,
+            complete=True,
+        )
+    )
+    return tuple(samples)
 
 
 class GdcModel:

@@ -216,6 +216,37 @@ future display-memory-cycle scheduler. It does not yet drive AD/A16/A17, issue
 ALE/DBIN, fetch display data, or generate mode-dependent character pins; those
 are separate bus and character-timing milestones.
 
+## Display-memory cycle primitive
+
+`upd7220_memif` owns the split physical AD, A16/A17, ALE, and DBIN signals. Its
+request boundary accepts either a two-clock display/read cycle or a four-clock
+RMW cycle. The address is latched when a request starts and driven on AD for all
+of C1, while A16/A17 retain its upper bits through the complete primitive.
+
+ALE uses a rising-edge cycle epoch and a falling-edge acknowledgement. This
+produces the documented high first half of C1 and low remainder without a
+dual-edge procedural block, an internal generated clock, or a synthesizable
+delay. AD releases at the C1-to-C2 rising edge. A display access samples the
+external value at the falling edge ending C2 for verification/convenience use;
+original external video hardware independently loads its shift register there.
+
+For RMW, DBIN falls at the midpoint of C2, stays low through the first half of
+C3, and rises at C3's midpoint when AD input is sampled. Upstream logic sees
+that sample during the following half-cycle and supplies modified data. The
+primitive latches it at the C4 rising edge, drives it for all of C4, then
+releases AD. This boundary will allow MASK/WDAT/drawing logic to remain
+separate from physical bus timing.
+
+The final clock of either primitive may accept the next request, so consecutive
+cycles have no idle bubble. Integration and functional reset immediately force
+ALE/DBIN inactive-high and release AD, including a reset during DBIN or C4.
+Assertions prevent AD drive during DBIN and require read-before-write ordering.
+
+The primitive is connected to the public core pins but deliberately receives no
+requests until the next raster-fetch milestone. Refresh ownership, arbitration,
+zoom extension, BLANK ownership, and character/mixed A16/A17 multiplexing are
+not claimed by this block yet.
+
 ## Compatibility profiles
 
 `upd7220_pkg::gdc_variant_t` defines three explicit profiles:

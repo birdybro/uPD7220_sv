@@ -225,12 +225,37 @@ The line count is latched with its descriptor, so rewriting the current LEN
 cannot shorten or extend the area in progress. The independent core test checks
 these events against the falling-edge raster generator and its following rising
 partition edge. Physical ALE/DBIN transactions remain pending and are not
-implied by this architectural DAD schedule.
+implied by this architectural DAD schedule; the implemented primitive below is
+not connected to the partition request stream until the display-fetch milestone.
+
+## Base display-memory primitive edge table
+
+Every numbered clock begins on a rising 2xWCLK edge. Address and write drive
+continue across the following falling edge and end at the next rising edge.
+The pin state immediately after each controlling digital edge is:
+
+| Edge | Display cycle | RMW cycle |
+|---|---|---|
+| rising C1 | ALE=1; drive address on AD and A16/A17 | same |
+| falling C1 | ALE=0; continue driving address | same |
+| rising C2 | release AD; ALE remains 0 | same |
+| falling C2 | external video register may sample data; DBIN remains 1 | DBIN=0; memory drives read data |
+| rising C3 | cycle complete; ALE=1, or next C1 begins | DBIN remains 0; memory continues driving |
+| falling C3 | — | sample AD read data; DBIN=1 |
+| rising C4 | — | drive the latched modified word; ALE remains 0 |
+| falling C4 | — | continue driving the stable modified word |
+| rising C5 | — | cycle complete; release AD and raise ALE, or begin next C1 |
+
+The display sample in the RTL is an integration convenience and does not imply
+that original silicon consumed raster data internally. In an original system,
+external video hardware loads that word at the end of C2. RMW does consume the
+read word and always performs C4 writeback, including read operations whose
+writeback is unchanged.
 
 ## Display-memory electrical timing (base 82720)
 
-The following page-27 values are recorded now for the memory-cycle milestones;
-they are not yet implementation claims:
+The following page-27 propagation/setup values are recorded separately from the
+implemented digital-edge schedule; they are not portable RTL delay claims:
 
 | Symbol | Relationship | Minimum | Maximum |
 |---|---|---:|---:|
@@ -245,14 +270,14 @@ they are not yet implementation claims:
 | TAH | ALE high time | `TCH - 20 ns` | — |
 | TCO | falling 2xWCLK to video signal | — | 150 ns |
 
-RTL will reproduce which clock edge begins each phase and the logical
-relationships among AD, ALE, DBIN, and direction. The nanosecond propagation
-columns will become assertions/checks, not synthesizable delay statements.
+RTL now reproduces which clock edge begins each base unzoomed phase and the
+logical relationships among AD, ALE, DBIN, and direction. The nanosecond
+propagation columns will become assertions/checks, not synthesizable delays.
 
 ## Pending timing normalization
 
 The following source diagrams still require machine-readable edge tables as
-their implementation milestones arrive: display read/write/RMW cycles,
+their implementation milestones arrive: zoom-extended memory cycles,
 display-fetch and refresh ownership, DRQ/DACK sequencing, drawing execution
 latency, interlaced vertical raster edges, slave synchronization, light-pen
 sampling/deglitching, interlace half-lines, and active-display memory

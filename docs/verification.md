@@ -75,6 +75,16 @@ path and observes area and DAD transitions on the live raster. The Python model
 uses boundary-triggered descriptor decoding rather than the RTL decoder's
 structure and checks the same architectural vectors.
 
+Memory-interface primitive tests sample every rising and falling 2xWCLK edge.
+They verify address drive throughout C1, ALE's midpoint fall and completion
+rise, AD release, display-data sampling at the end of C2, the DBIN-low window
+from mid-C2 to mid-C3, RMW read sampling, C4 write stability, A16/A17, a
+back-to-back cycle with no idle bubble, and reset during an asserted DBIN. A
+separate Python timing table produces five display half-edge samples and nine
+RMW samples without reusing the RTL state-machine structure. Assertions prove
+that DBIN and GDC AD drive never overlap and that an RMW write cannot precede
+the read phase.
+
 The smoke DUT under `tests/rtl/` remains a minimal check of SystemVerilog
 compilation, VPI loading, cocotb scheduling, and waveform generation independent
 of the physical GDC wrapper.

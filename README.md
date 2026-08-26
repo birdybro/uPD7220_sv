@@ -14,7 +14,9 @@ The raw 16-byte Parameter RAM and its addressed sequential loading are also
 implemented. Its display-partition consumer decodes the character, graphics,
 and mixed-mode descriptor formats, sequences DAD across scanlines and area
 boundaries, and implements image/wide access stepping. Display-memory bus
-cycles and fetched pixel data remain later milestones. Accuracy claims are
+primitive cycles now reproduce the two-clock display access and four-clock RMW
+address, ALE, DBIN, turnaround, sampling, and writeback phases. Raster fetch
+scheduling and fetched pixel use remain later milestones. Accuracy claims are
 limited to primary-source requirements with executable tests.
 
 ## Reference corpus

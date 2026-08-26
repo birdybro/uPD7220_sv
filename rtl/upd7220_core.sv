@@ -125,6 +125,16 @@ module upd7220_core #(
     logic       unused_image_area;
     logic       unused_graphics_area;
     logic       unused_wide_access;
+    logic       unused_mem_request_ready;
+    logic       unused_mem_response_valid;
+    upd7220_pkg::memory_cycle_kind_t unused_mem_response_kind;
+    logic [17:0] unused_mem_response_address;
+    logic [15:0] unused_mem_response_read_data;
+    logic       unused_mem_cycle_active;
+    upd7220_pkg::memory_cycle_kind_t unused_mem_cycle_kind;
+    upd7220_pkg::memory_cycle_phase_t unused_mem_cycle_phase;
+    logic       unused_rmw_read_data_valid;
+    logic [15:0] unused_rmw_read_data;
 
     assign _unused_inputs = ^{
         v_ext_sync_i,
@@ -176,7 +186,17 @@ module upd7220_core #(
         unused_dad,
         unused_image_area,
         unused_graphics_area,
-        unused_wide_access
+        unused_wide_access,
+        unused_mem_request_ready,
+        unused_mem_response_valid,
+        unused_mem_response_kind,
+        unused_mem_response_address,
+        unused_mem_response_read_data,
+        unused_mem_cycle_active,
+        unused_mem_cycle_kind,
+        unused_mem_cycle_phase,
+        unused_rmw_read_data_valid,
+        unused_rmw_read_data
     };
 
     assign status_value = device_initialized_q
@@ -365,6 +385,36 @@ module upd7220_core #(
         .wide_access                  (unused_wide_access)
     );
 
+    // The primitive is connected to the physical memory pins now. Display,
+    // refresh, drawing, and DMA schedulers acquire its request port in their
+    // dedicated milestones; until then no memory cycle is fabricated.
+    upd7220_memif memory_interface (
+        .clk_2x,
+        .integration_reset_n,
+        .reset_command,
+        .request_valid                (1'b0),
+        .request_ready                (unused_mem_request_ready),
+        .request_kind                 (upd7220_pkg::MEM_CYCLE_DISPLAY),
+        .request_address              (unused_dad),
+        .rmw_write_data               (16'h0000),
+        .response_valid               (unused_mem_response_valid),
+        .response_kind                (unused_mem_response_kind),
+        .response_address             (unused_mem_response_address),
+        .response_read_data           (unused_mem_response_read_data),
+        .cycle_active                 (unused_mem_cycle_active),
+        .cycle_kind                   (unused_mem_cycle_kind),
+        .cycle_phase                  (unused_mem_cycle_phase),
+        .rmw_read_data_valid          (unused_rmw_read_data_valid),
+        .rmw_read_data                (unused_rmw_read_data),
+        .mem_ad_i,
+        .mem_ad_o,
+        .mem_ad_oe,
+        .mem_a16,
+        .mem_a17,
+        .mem_ale,
+        .mem_dbin_n
+    );
+
     upd7220_video_timing video_timing (
         .clk_2x,
         .integration_reset_n,
@@ -417,25 +467,13 @@ module upd7220_core #(
             idle_q       <= 1'b1;
             word_half_q  <= 1'b0;
             word_time_ce <= 1'b0;
-            mem_dbin_n   <= 1'b1;
-            mem_ale      <= 1'b1;
             drq          <= 1'b0;
-            mem_ad_o     <= 16'h0000;
-            mem_ad_oe    <= 1'b0;
-            mem_a16      <= 1'b0;
-            mem_a17      <= 1'b0;
         end else if (reset_command) begin
             device_initialized_q <= 1'b1;
             idle_q               <= 1'b1;
             word_half_q          <= 1'b0;
             word_time_ce         <= 1'b0;
-            mem_dbin_n           <= 1'b1;
-            mem_ale              <= 1'b1;
             drq                  <= 1'b0;
-            mem_ad_o             <= 16'h0000;
-            mem_ad_oe            <= 1'b0;
-            mem_a16              <= 1'b0;
-            mem_a17              <= 1'b0;
         end else begin
             word_half_q  <= ~word_half_q;
             word_time_ce <= word_half_q;
