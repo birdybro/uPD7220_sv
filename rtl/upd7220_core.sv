@@ -150,8 +150,7 @@ module upd7220_core #(
         unused_active_line,
         unused_field_start,
         unused_vertical_phase,
-        unused_vertical_line_index,
-        idle_q
+        unused_vertical_line_index
     };
 
     assign status_value = device_initialized_q
@@ -275,7 +274,7 @@ module upd7220_core #(
         .integration_reset_n,
         .reset_command,
         .word_time_ce,
-        .display_enable             (sync_display_enable),
+        .display_enable             (sync_display_enable && !idle_q),
         .active_words               (sync_active_words),
         .hsync_width                (sync_hsync_width),
         .horizontal_front_porch     (sync_horizontal_front_porch),
@@ -344,6 +343,9 @@ module upd7220_core #(
         end else begin
             word_half_q  <= ~word_half_q;
             word_time_ce <= word_half_q;
+            if (command_start && (started_kind == upd7220_pkg::CMD_START)) begin
+                idle_q <= 1'b0;
+            end
         end
     end
 

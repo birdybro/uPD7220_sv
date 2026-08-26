@@ -239,3 +239,42 @@ async def master_vsync_pin_has_the_programmed_default_line_width(dut: object) ->
     # Zero-valued retained integration parameters decode as VS=32 lines and
     # HFP+HS+HBP+AW=5 words, each two clocks: 32 * 5 * 2 falling edges.
     assert falling_index - high_start == 320
+
+
+@cocotb.test()
+async def start_exits_idle_while_bctrl_only_changes_enable(dut: object) -> None:
+    cocotb.start_soon(Clock(dut.clk_2x, 200, unit="ns").start())
+    dut.host_rd_n.value = 1
+    dut.host_wr_n.value = 1
+    dut.host_a0.value = 0
+    dut.host_db_i.value = 0
+    dut.v_ext_sync_i.value = 0
+    dut.dack_n.value = 1
+    dut.mem_ad_i.value = 0
+    dut.lpen.value = 0
+    dut.integration_reset_n.value = 0
+    await sample_after_rising_edge(dut)
+    await Timer(1, unit="ps")
+    dut.integration_reset_n.value = 1
+
+    await host_command_and_settle(dut, 0x00)
+    assert int(dut.idle_q.value) == 1
+    assert int(dut.sync_display_enable.value) == 0
+
+    await host_command_and_settle(dut, 0x0D)
+    assert int(dut.idle_q.value) == 1
+    assert int(dut.sync_display_enable.value) == 1
+    assert int(dut.blank.value) == 1
+
+    await host_command_and_settle(dut, 0x6B)
+    assert int(dut.idle_q.value) == 0
+    assert int(dut.sync_display_enable.value) == 1
+
+    await host_command_and_settle(dut, 0x0C)
+    assert int(dut.idle_q.value) == 0
+    assert int(dut.sync_display_enable.value) == 0
+    assert int(dut.blank.value) == 1
+
+    await host_command_and_settle(dut, 0x0D)
+    assert int(dut.idle_q.value) == 0
+    assert int(dut.sync_display_enable.value) == 1

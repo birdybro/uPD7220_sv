@@ -86,3 +86,29 @@ def test_partial_reset_prefix_updates_only_received_bytes() -> None:
     assert model.sync.framing_mode == 0
     assert model.sync.active_words == 18
     assert model.sync.hsync_width == 27
+
+
+def test_start_exits_idle_while_bctrl_only_changes_display_enable() -> None:
+    model = GdcModel()
+    model.reset_command()
+
+    issue(model, 0x0D)
+    assert model.idle
+    assert model.display_enabled
+    model.step_edge()
+    model.step_falling_edge()
+    assert model.blank
+
+    issue(model, 0x6B)
+    assert not model.idle
+    assert model.display_enabled
+    issue(model, 0x0C)
+    assert not model.idle
+    assert not model.display_enabled
+    issue(model, 0x0D)
+    assert not model.idle
+    assert model.display_enabled
+
+    model.reset_command()
+    assert model.idle
+    assert not model.display_enabled

@@ -46,6 +46,7 @@ def test_absolute_line_model_matches_documented_four_intervals() -> None:
     model = GdcModel()
     model.reset_command()
     issue(model, 0x0F, SYNC_PARAMETERS)
+    issue(model, 0x6B)
     latch_initial_outputs(model)
 
     assert pins(model) == (VerticalPhase.FRONT_PORCH, 0, False, True)
@@ -93,6 +94,7 @@ def test_blank_requires_both_horizontal_and_vertical_active_intervals() -> None:
     model = GdcModel()
     model.reset_command()
     issue(model, 0x0F, SYNC_PARAMETERS)
+    issue(model, 0x6B)
     latch_initial_outputs(model)
     assert model.blank
 

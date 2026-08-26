@@ -192,6 +192,17 @@ additional term. `tests/test_rtl_vertical_timing.py` checks every line boundary;
 `tests/test_rtl_foundation.py` checks that a 32-line VS pulse reaches the master
 pin with exactly 320 falling-edge intervals for the default five-word line.
 
+## Display-control timing
+
+RESET sets `idle=1` and clears the display-enable request. SYNC and BCTRL replace
+the request with opcode bit DE but do not change idle. START atomically sets
+`idle=0` and the request to one at its registered command-start event. The
+horizontal timing block samples the combined request on the following falling
+2xWCLK edge, keeping BLANK changes aligned with the video-output TCO edge.
+
+BCTRL DE=1 while idle therefore leaves BLANK asserted; START is the only base
+command that exits idle. RESET re-enters idle from every display-control state.
+
 ## Display-memory electrical timing (base 82720)
 
 The following page-27 values are recorded now for the memory-cycle milestones;

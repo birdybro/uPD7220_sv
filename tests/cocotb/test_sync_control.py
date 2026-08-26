@@ -8,6 +8,8 @@ from cocotb.triggers import ReadOnly, RisingEdge, Timer
 CMD_RESET = 1
 CMD_SYNC = 2
 CMD_VSYNC = 3
+CMD_START = 5
+CMD_BCTRL = 6
 SYNC_VECTOR = (0x1F, 0xFE, 0xBA, 0xAA, 0x3F, 0x00, 0xFF, 0x03)
 
 
@@ -150,3 +152,22 @@ async def non_sync_parameters_do_not_modify_timing_registers(dut: object) -> Non
     await parameter(dut, 12, 0, 0x00)
     assert raw_parameters(dut) == SYNC_VECTOR
     assert int(dut.programmed_mask.value) == 0xFF
+
+
+@cocotb.test()
+async def start_and_bctrl_update_the_display_enable_request(dut: object) -> None:
+    await start_and_reset(dut)
+    assert int(dut.display_enable.value) == 0
+
+    await command(dut, CMD_BCTRL, 0x0D)
+    assert int(dut.display_enable.value) == 1
+    await command(dut, CMD_BCTRL, 0x0C)
+    assert int(dut.display_enable.value) == 0
+    await command(dut, CMD_START, 0x6B)
+    assert int(dut.display_enable.value) == 1
+
+    dut.reset_command.value = 1
+    await edge(dut)
+    await finish_edge()
+    dut.reset_command.value = 0
+    assert int(dut.display_enable.value) == 0

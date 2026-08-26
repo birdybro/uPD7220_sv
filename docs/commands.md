@@ -25,8 +25,8 @@ read-modify-write modifier, `DE` is display enable, `M` selects sync master, and
 | SYNC | `0E`, `0F` (`0000111DE`) | 8 | Mode and raster-format registers; DE controls display | Completes after P8 or is interrupted by a new command | Register effects unit verified |
 | VSYNC | `6E`, `6F` (`0110111M`) | 0 | Master/slave vertical-sync selection | Completes with opcode | Register and pin-direction effects unit verified |
 | CCHAR | `4B` | 3 | Character row, cursor, and blink registers | Completes after P3 | Decode verified |
-| START | `6B` | 0 | Exit idle and start display | Completes with opcode | Decode verified |
-| BCTRL | `0C`, `0D` (`0000110DE`) | 0 | Display blank/enable state | Completes with opcode | Decode verified |
+| START | `6B` | 0 | Exit idle and force display enable | Completes with opcode | Control effect unit verified |
+| BCTRL | `0C`, `0D` (`0000110DE`) | 0 | Change display enable without leaving idle | Completes with opcode | Control effect unit verified |
 | ZOOM | `46` | 1 | Display and graphics-character zoom | Completes after P1 | Decode verified |
 | CURS | `49` | 2 in character mode; 3 in graphics mode | EAD and, for graphics, dAD/mask | Parser accepts a three-byte maximum; a new command legally terminates after P2 | Decode verified |
 | PRAM | `70`–`7F` (`0111SA`) | 1 through `16-SA` | Sequential Parameter RAM locations SA through 15 | Ends at location 15 or when a new command arrives | Decode verified |
@@ -76,6 +76,13 @@ an enabled 2xWCLK edge. This is an internal interface, not yet a claim about the
 final command's externally visible completion latency. Command-specific FIFO
 stalling, register-update points, memory scheduling, drawing/DMA busy timing,
 and read-direction turnaround are verified in their respective milestones.
+
+START and BCTRL have separate state effects. START sets display enable and
+permanently leaves idle until the next RESET. BCTRL DE=0/1 changes the display
+enable request but never changes idle. Consequently, BCTRL DE=1 during idle does
+not unblank the pin; a later START is still required. SYNC DE controls the same
+enable request and likewise does not leave idle. The request is sampled into
+the BLANK path on a falling 2xWCLK edge.
 
 ## Variant notes
 

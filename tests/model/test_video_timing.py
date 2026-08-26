@@ -67,6 +67,7 @@ def test_outputs_wait_for_falling_edge_and_blank_tracks_display_enable() -> None
     model = GdcModel()
     model.reset_command()
     issue(model, 0x0F, SYNC_PARAMETERS)
+    issue(model, 0x6B)
     falling_after_rising(model)
     advance_word(model)
 

@@ -101,6 +101,14 @@ the physical V/EXT SYNC pin is driven (master) or released as an input (slave).
 The noninterlaced master waveform comes from the vertical timing block;
 interlaced and slave resynchronization behavior remain later timing work.
 
+## START, BCTRL, and idle
+
+Idle and display enable are distinct state. RESET enters idle and clears the
+enable request. SYNC and BCTRL update the enable request without changing idle;
+START sets the request and exits idle. The BLANK path uses
+`display_enable && !idle`, sampled on the documented falling video-output edge,
+so BCTRL cannot accidentally start display scanning from idle.
+
 ## Horizontal raster timing
 
 `upd7220_video_timing` implements the documented four-interval line sequence:
@@ -126,9 +134,9 @@ uses one absolute line position rather than the RTL's interval counter.
 The module currently generates the documented noninterlaced sequence for all
 framing codes. This is correct while the device is in idle mode, where the
 manual requires noninterlaced synchronization even when interlace is
-programmed. START/idle control and the two-field half-line sequence are not yet
-implemented. The inferred RESET phase origin is recorded in
-`docs/open_questions.md`.
+programmed. START/idle blanking is implemented; switching the timing generator
+to the programmed two-field half-line sequence after START remains pending. The
+inferred RESET phase origin is recorded in `docs/open_questions.md`.
 
 ## Compatibility profiles
 

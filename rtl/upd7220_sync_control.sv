@@ -105,8 +105,16 @@ module upd7220_sync_control #(
             if (reset_command) begin
                 // Base RESET blanks but explicitly retains loaded parameters.
                 display_enable_q <= 1'b0;
-            end else if (command_start && (started_kind == upd7220_pkg::CMD_SYNC)) begin
-                display_enable_q <= started_opcode == 8'h0f;
+            end else if (command_start) begin
+                case (started_kind)
+                    upd7220_pkg::CMD_SYNC,
+                    upd7220_pkg::CMD_BCTRL:
+                        display_enable_q <= started_opcode[0];
+                    upd7220_pkg::CMD_START:
+                        display_enable_q <= 1'b1;
+                    default: begin
+                    end
+                endcase
             end
 
             if (command_start && (started_kind == upd7220_pkg::CMD_VSYNC)) begin

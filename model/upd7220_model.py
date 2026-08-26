@@ -371,7 +371,7 @@ class GdcModel:
         the RTL's interval-state implementation.
         """
         self.falling_edge_count += 1
-        self._timing_display_enabled = self.display_enabled
+        self._timing_display_enabled = self.display_enabled and not self.idle
         horizontal_counts = self._horizontal_counts()
         line_advance = False
         if horizontal_counts is not None:
@@ -519,6 +519,11 @@ class GdcModel:
                 self.display_enabled = bool(entry.value & 1)
             elif decoded.kind is CommandKind.VSYNC:
                 self.sync_master = bool(entry.value & 1)
+            elif decoded.kind is CommandKind.START:
+                self.idle = False
+                self.display_enabled = True
+            elif decoded.kind is CommandKind.BCTRL:
+                self.display_enabled = bool(entry.value & 1)
             if decoded.parameter_limit == 0:
                 self.command_state = CommandState.IDLE
                 self.active_command_kind = None
