@@ -119,3 +119,18 @@ async def only_fifo_reads_generate_pop_events(dut: object) -> None:
     assert await clock_sample(dut) == (0, 0)
     assert await clock_sample(dut) == (0, 1)
     assert await clock_sample(dut) == (0, 0)
+
+
+@cocotb.test()
+async def reset_opcode_uses_the_dedicated_pre_fifo_path(dut: object) -> None:
+    await start_and_reset(dut)
+    await Timer(25, unit="ns")
+    await host_write(dut, command=True, value=0x00)
+
+    assert await clock_sample(dut) == (0, 0)
+    await RisingEdge(dut.clk_2x)
+    await ReadOnly()
+    assert int(dut.reset_command.value) == 1
+    assert int(dut.fifo_write_valid.value) == 0
+    await Timer(1, unit="ps")
+    assert await clock_sample(dut) == (0, 0)

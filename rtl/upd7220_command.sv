@@ -3,7 +3,7 @@
 module upd7220_command (
     input  logic                        clk_2x,
     input  logic                        integration_reset_n,
-    input  logic                        command_reset,
+    input  logic                        reset_command,
     input  logic                        processor_enable,
 
     input  logic                        fifo_valid,
@@ -48,7 +48,7 @@ module upd7220_command (
     assign decoded_parameter_limit =
         upd7220_pkg::command_parameter_limit(decoded_kind, fifo_data[4:0]);
 
-    assign fifo_pop = processor_enable && fifo_valid;
+    assign fifo_pop = processor_enable && fifo_valid && !reset_command;
     assign command_active = command_active_q;
     assign active_kind = active_kind_q;
     assign active_opcode = active_opcode_q;
@@ -76,16 +76,22 @@ module upd7220_command (
             active_opcode_q           <= 8'h00;
             active_parameter_limit_q  <= 5'd0;
             next_parameter_index_q    <= 4'd0;
-        end else if (command_reset) begin
-            command_start             <= 1'b0;
-            command_known             <= 1'b0;
+        end else if (reset_command) begin
+            // RESET bypasses the FIFO and initializes this processor, while
+            // opening the optional eight-byte SYNC-format parameter prefix.
+            command_start             <= 1'b1;
+            command_known             <= 1'b1;
+            started_kind              <= upd7220_pkg::CMD_RESET;
+            started_opcode            <= 8'h00;
+            started_parameter_limit   <= 5'd8;
             parameter_valid           <= 1'b0;
             command_complete          <= 1'b0;
             command_interrupted       <= 1'b0;
             unexpected_parameter      <= 1'b0;
-            command_active_q          <= 1'b0;
-            active_kind_q             <= upd7220_pkg::CMD_INVALID;
-            active_parameter_limit_q  <= 5'd0;
+            command_active_q          <= 1'b1;
+            active_kind_q             <= upd7220_pkg::CMD_RESET;
+            active_opcode_q           <= 8'h00;
+            active_parameter_limit_q  <= 5'd8;
             next_parameter_index_q    <= 4'd0;
         end else begin
             command_start        <= 1'b0;
@@ -154,16 +160,16 @@ module upd7220_command (
 
 `ifndef SYNTHESIS
     property p_parameter_index_in_range;
-        @(posedge clk_2x) disable iff (!integration_reset_n || command_reset)
+        @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)
             command_active_q |->
                 ({1'b0, next_parameter_index_q} < active_parameter_limit_q);
     endproperty
     property p_pop_only_available_entry;
-        @(posedge clk_2x) disable iff (!integration_reset_n || command_reset)
+        @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)
             fifo_pop |-> fifo_valid;
     endproperty
     property p_parameter_event_has_active_command;
-        @(posedge clk_2x) disable iff (!integration_reset_n || command_reset)
+        @(posedge clk_2x) disable iff (!integration_reset_n || reset_command)
             parameter_valid |-> (parameter_kind != upd7220_pkg::CMD_INVALID);
     endproperty
 

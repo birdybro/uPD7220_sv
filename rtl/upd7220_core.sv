@@ -34,12 +34,14 @@ module upd7220_core #(
 
     logic word_half_q;
     logic _unused_inputs;
-    logic integration_initialized_q;
+    logic device_initialized_q;
+    logic idle_q;
     logic [7:0] status_value;
     logic       fifo_write_valid;
     logic       fifo_write_is_command;
     logic [7:0] fifo_write_data;
     logic       fifo_read_pop;
+    logic       reset_command;
     logic [7:0] fifo_read_data;
     logic       fifo_empty;
     logic       fifo_full;
@@ -97,10 +99,11 @@ module upd7220_core #(
         unused_command_active,
         unused_active_kind,
         unused_active_opcode,
-        unused_next_parameter_index
+        unused_next_parameter_index,
+        idle_q
     };
 
-    assign status_value = integration_initialized_q
+    assign status_value = device_initialized_q
         ? {5'b0, fifo_empty, fifo_full, fifo_data_ready}
         : 8'hxx;
 
@@ -118,13 +121,14 @@ module upd7220_core #(
         .fifo_write_valid,
         .fifo_write_is_command,
         .fifo_write_data,
-        .fifo_read_pop
+        .fifo_read_pop,
+        .reset_command
     );
 
     upd7220_fifo fifo (
         .clk_2x,
         .integration_reset_n,
-        .fifo_reset                (1'b0),
+        .fifo_reset                (reset_command),
         .host_write_valid          (fifo_write_valid),
         .host_write_is_command     (fifo_write_is_command),
         .host_write_data           (fifo_write_data),
@@ -148,7 +152,7 @@ module upd7220_core #(
     upd7220_command command_processor (
         .clk_2x,
         .integration_reset_n,
-        .command_reset             (1'b0),
+        .reset_command,
         .processor_enable          (1'b1),
         .fifo_valid                (command_valid),
         .fifo_is_command           (command_is_command),
@@ -185,7 +189,8 @@ module upd7220_core #(
     // All functional timing remains clocked from 2xWCLK; no derived clock exists.
     always_ff @(posedge clk_2x or negedge integration_reset_n) begin
         if (!integration_reset_n) begin
-            integration_initialized_q <= 1'b1;
+            device_initialized_q <= 1'b0;
+            idle_q       <= 1'b1;
             word_half_q  <= 1'b0;
             word_time_ce <= 1'b0;
             mem_dbin_n   <= 1'b1;
@@ -199,6 +204,22 @@ module upd7220_core #(
             mem_ad_oe    <= 1'b0;
             mem_a16      <= 1'b0;
             mem_a17      <= 1'b0;
+        end else if (reset_command) begin
+            device_initialized_q <= 1'b1;
+            idle_q               <= 1'b1;
+            word_half_q          <= 1'b0;
+            word_time_ce         <= 1'b0;
+            mem_dbin_n           <= 1'b1;
+            hsync                <= 1'b0;
+            v_ext_sync_o         <= 1'b0;
+            v_ext_sync_oe        <= 1'b0;
+            blank                <= 1'b1;
+            mem_ale              <= 1'b1;
+            drq                  <= 1'b0;
+            mem_ad_o             <= 16'h0000;
+            mem_ad_oe            <= 1'b0;
+            mem_a16              <= 1'b0;
+            mem_a17              <= 1'b0;
         end else begin
             word_half_q  <= ~word_half_q;
             word_time_ce <= word_half_q;

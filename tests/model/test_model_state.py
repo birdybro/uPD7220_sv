@@ -71,8 +71,9 @@ def test_two_clock_edges_make_one_word_time() -> None:
 def test_fifo_stores_metadata_and_seventeenth_host_byte_overwrites_oldest() -> None:
     model = GdcModel()
     model.reset_command()
-    for value in range(FIFO_CAPACITY):
-        model.host_write(value, is_command=(value == 0))
+    values = [0x6B, *range(1, FIFO_CAPACITY)]
+    for index, value in enumerate(values):
+        model.host_write(value, is_command=(index == 0))
 
     assert model.fifo_occupancy == FIFO_CAPACITY
     assert model.status() & 0x02

@@ -21,7 +21,7 @@ read-modify-write modifier, `DE` is display enable, `M` selects sync master, and
 
 | Command | Encoding | Parameter bytes accepted by parser | Architectural destination/effect | FIFO and completion rule | Current status |
 |---|---:|---:|---|---|---|
-| RESET | `00` | 0–8 | Reset control state; optional bytes use SYNC format | Opcode takes effect independently; a new command terminates the optional prefix | Decode verified |
+| RESET | `00` | 0–8 | Reset control state; optional bytes use SYNC format | Dedicated pre-FIFO path; a new command terminates the optional prefix | Reset path unit verified; parameter effects pending |
 | SYNC | `0E`, `0F` (`0000111DE`) | 8 | Mode and raster-format registers; DE controls display | Completes after P8 or is interrupted by a new command | Decode verified |
 | VSYNC | `6E`, `6F` (`0110111M`) | 0 | Master/slave vertical-sync selection | Completes with opcode | Decode verified |
 | CCHAR | `4B` | 3 | Character row, cursor, and blink registers | Completes after P3 | Decode verified |

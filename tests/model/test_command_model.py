@@ -116,3 +116,35 @@ def test_read_direction_requires_a_command_abort_and_discards_data_register() ->
     assert model.fifo_direction is FifoDirection.WRITE_TO_GDC
     assert model.data_register is None
     assert model.read_refill_count == 0
+
+
+def test_reset_opcode_bypasses_and_empties_a_full_fifo() -> None:
+    model = GdcModel()
+    model.reset_command()
+    for value in range(16):
+        model.host_write(value + 1, is_command=False)
+    assert model.fifo_occupancy == 16
+
+    model.host_write(0x00, is_command=True)
+
+    assert model.has_reset
+    assert model.idle
+    assert model.fifo_occupancy == 0
+    assert model.status() == 0x04
+    assert model.command_state is CommandState.PARAMETERS
+    assert model.active_command_kind is CommandKind.RESET
+    assert model.active_command_opcode == 0x00
+    assert model.active_parameter_limit == 8
+
+
+def test_reset_optional_parameter_prefix_completes_after_eight_bytes() -> None:
+    model = GdcModel()
+    model.host_write(0x00, is_command=True)
+    for value in range(8):
+        model.host_write(0x80 + value, is_command=False)
+
+    for index in range(8):
+        event = model.parser_step()
+        assert event.parameter == (CommandKind.RESET, index, 0x80 + index)
+        assert event.completed_opcode == (0x00 if index == 7 else None)
+    assert model.command_state is CommandState.IDLE

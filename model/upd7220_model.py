@@ -330,6 +330,17 @@ class GdcModel:
         """Place a tagged host byte in the CPU-to-GDC FIFO."""
         if not 0 <= value <= BYTE_MASK:
             raise ValueError("host byte exceeds eight bits")
+        if is_command and value == 0x00:
+            # RESET is decoded by dedicated hardware ahead of the FIFO. It
+            # cannot be blocked by FIFO state and is not stored in the ring.
+            self.reset_command()
+            self.command_state = CommandState.PARAMETERS
+            self.active_command_kind = CommandKind.RESET
+            self.active_command_opcode = 0x00
+            self.next_parameter_index = 0
+            self.active_parameter_limit = 8
+            self.active_repeats_parameter_group = False
+            return
         if self.fifo_direction is FifoDirection.READ_FROM_GDC:
             if not is_command:
                 raise ModelError("only a command byte can terminate FIFO read mode")

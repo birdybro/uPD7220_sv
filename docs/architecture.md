@@ -42,6 +42,12 @@ data remains unchanged until well after the event is consumed. This relies on
 the data sheet's four-TCY recovery requirement and avoids an arbitrary faster
 internal clock. Setup/hold and minimum-pulse checks remain simulation-only.
 
+RESET does not use the ordinary event toggle. Its host-domain request is held
+until a separately synchronized acknowledgement returns. This dedicated path
+can converge from unknown pre-RESET toggle state, bypasses FIFO storage, clears
+both host-interface domains, and initializes the FIFO/parser/status path. It
+also leaves the parser ready for RESET's optional eight SYNC-format bytes.
+
 ## Half-duplex FIFO
 
 `upd7220_fifo` implements the documented 16-entry tagged ring shared by both
@@ -69,6 +75,15 @@ FIGS may be terminated by a new command after an optional prefix; PRAM derives
 its maximum length from SA; WDAT repeats one- or two-byte groups until another
 command arrives. This parser does not implement command effects. Those effects
 consume its events in later register, memory, drawing, and DMA modules.
+
+## Base RESET state
+
+Opcode `00h` blanks the display, enters idle, releases the display-memory bus,
+deasserts DMA request, initializes the word-time phase, empties the FIFO and
+host data register, and reinitializes command parsing. Status becomes meaningful
+only after this path runs. Parameter/register storage is not globally cleared;
+the base manuals explicitly require previously loaded parameters to survive
+unless optional RESET parameters overwrite the sync-format fields.
 
 ## Compatibility profiles
 

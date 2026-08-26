@@ -192,3 +192,42 @@ async def command_aborts_even_a_full_read_fifo(dut: object) -> None:
     assert int(dut.occupancy.value) == 1
     assert int(dut.data_ready.value) == 0
     assert await command_pop(dut) == (0x6B, 1)
+
+
+@cocotb.test()
+async def fifo_reset_clears_full_write_and_buffered_read_states(dut: object) -> None:
+    await start_and_reset(dut)
+    for value in range(16):
+        await write(dut, value)
+    assert int(dut.fifo_full.value) == 1
+
+    dut.fifo_reset.value = 1
+    await edge(dut)
+    await finish_edge()
+    dut.fifo_reset.value = 0
+    assert int(dut.fifo_empty.value) == 1
+    assert int(dut.fifo_full.value) == 0
+    assert int(dut.occupancy.value) == 0
+    assert int(dut.read_direction.value) == 0
+    assert int(dut.data_ready.value) == 0
+
+    dut.turn_to_read.value = 1
+    await edge(dut)
+    await finish_edge()
+    dut.turn_to_read.value = 0
+    await response_push(dut, 0xA5)
+    await response_push(dut, 0x5A)
+    for _ in range(4):
+        await edge(dut)
+        await finish_edge()
+    assert int(dut.data_ready.value) == 1
+    assert int(dut.occupancy.value) == 1
+
+    dut.fifo_reset.value = 1
+    await edge(dut)
+    await finish_edge()
+    dut.fifo_reset.value = 0
+    assert int(dut.fifo_empty.value) == 1
+    assert int(dut.occupancy.value) == 0
+    assert int(dut.read_direction.value) == 0
+    assert int(dut.data_ready.value) == 0

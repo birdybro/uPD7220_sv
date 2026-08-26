@@ -88,7 +88,7 @@ async def finish_edge() -> None:
 
 async def start_and_reset(dut: object) -> None:
     cocotb.start_soon(Clock(dut.clk_2x, 200, unit="ns").start())
-    dut.command_reset.value = 0
+    dut.reset_command.value = 0
     dut.processor_enable.value = 1
     dut.fifo_valid.value = 0
     dut.fifo_is_command.value = 0
@@ -100,10 +100,9 @@ async def start_and_reset(dut: object) -> None:
 
 
 async def parser_reset(dut: object) -> None:
-    dut.command_reset.value = 1
-    await edge(dut)
-    await finish_edge()
-    dut.command_reset.value = 0
+    dut.integration_reset_n.value = 0
+    await Timer(1, unit="ns")
+    dut.integration_reset_n.value = 1
 
 
 async def entry(dut: object, value: int, *, command: bool) -> dict[str, int]:
@@ -133,6 +132,33 @@ async def entry(dut: object, value: int, *, command: bool) -> dict[str, int]:
     await finish_edge()
     dut.fifo_valid.value = 0
     return observed
+
+
+@cocotb.test()
+async def dedicated_reset_initializes_parser_and_accepts_optional_parameters(
+    dut: object,
+) -> None:
+    await start_and_reset(dut)
+    await entry(dut, 0x4C, command=True)
+    await entry(dut, 0x12, command=False)
+
+    dut.reset_command.value = 1
+    await edge(dut)
+    assert int(dut.command_start.value) == 1
+    assert int(dut.started_kind.value) == CMD_RESET
+    assert int(dut.started_opcode.value) == 0
+    assert int(dut.started_parameter_limit.value) == 8
+    assert int(dut.command_active.value) == 1
+    assert int(dut.next_parameter_index.value) == 0
+    assert int(dut.command_interrupted.value) == 0
+    await finish_edge()
+    dut.reset_command.value = 0
+
+    for index in range(8):
+        observed = await entry(dut, 0x40 + index, command=False)
+        assert observed["parameter_kind"] == CMD_RESET
+        assert observed["parameter_index"] == index
+        assert observed["complete"] == int(index == 7)
 
 
 @cocotb.test()
